@@ -130,7 +130,7 @@ public partial class MainWindow : Window
         if (settings.Pinned) SetExpanded(true);
         if (settings.DownloadsEnabled) StartDownloads();
         RefreshSystem(); RefreshVolume(); UpdateClock(); RefreshIdleContent(); timer.Start();
-        if (App.VerificationMode) { await VerifyUiAsync(); return; }
+        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
             Reveal(); OpenPreferences(3);

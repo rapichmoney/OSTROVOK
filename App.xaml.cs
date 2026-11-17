@@ -21,7 +21,7 @@ public partial class App : System.Windows.Application
         {
             Shutdown(await SelfTests.RunAsync(e.Args)); return;
         }
-        VerificationMode = e.Args.Contains("--verify-ui");
+        VerificationMode = e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");
         if (!VerificationMode)
         {
             instance = new Mutex(true, "Local\\DesktopIsland-" + Environment.UserName, out bool first);
