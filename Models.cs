@@ -22,7 +22,7 @@ public sealed class AppSettings
     public bool ClipboardEnabled { get; set; }
     public bool TelegramNotificationsEnabled { get; set; }
     public bool DiscordPresenceEnabled { get; set; }
-    public string DiscordApplicationId { get; set; } = "";
+    public string DiscordApplicationId { get; set; } = Services.DiscordPresenceService.DefaultApplicationId;
     public bool DiscordShowTrack { get; set; } = true;
     public int ClipboardFeatureVersion { get; set; }
     public bool ClipboardNotifications { get; set; } = true;

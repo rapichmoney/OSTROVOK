@@ -1,4 +1,4 @@
-param([switch]$ConnectTelegram, [ValidateSet('Segoe UI', 'Aminahs Schoolbook Sans Serif Bd')][string]$InterfaceFont)
+param([switch]$ConnectTelegram, [ValidateSet('Segoe UI', 'Aminahs Schoolbook Sans Serif Bd')][string]$InterfaceFont, [string]$DiscordApplicationId)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $target = [IO.Path]::GetFullPath((Join-Path $projectRoot 'release\DesktopIsland.exe'))
@@ -21,13 +21,19 @@ if (Test-Path -LiteralPath $target) {
 }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'artifacts\portable\DesktopIsland.exe') -Destination $target -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination (Join-Path $projectRoot 'release\README.md') -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'THIRD-PARTY-NOTICES.md') -Destination (Join-Path $projectRoot 'release\THIRD-PARTY-NOTICES.md') -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'Licenses') -Destination (Join-Path $projectRoot 'release') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'Assets\Fonts\OFL-Aminahs.txt') -Destination (Join-Path $projectRoot 'release\OFL-Aminahs.txt') -Force
 New-Item -ItemType Directory -Path (Join-Path $projectRoot 'release\tools') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot 'tools\repair_yandex_connection.ps1') -Destination (Join-Path $projectRoot 'release\tools\repair_yandex_connection.ps1') -Force
-if ($InterfaceFont) {
+if ($InterfaceFont -or $DiscordApplicationId) {
     $settingsPath = Join-Path $env:LOCALAPPDATA 'DesktopIsland\settings.json'
     $config = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
-    $config | Add-Member -NotePropertyName InterfaceFont -NotePropertyValue $InterfaceFont -Force
+    if ($InterfaceFont) { $config | Add-Member -NotePropertyName InterfaceFont -NotePropertyValue $InterfaceFont -Force }
+    if ($DiscordApplicationId) {
+        $config | Add-Member -NotePropertyName DiscordApplicationId -NotePropertyValue $DiscordApplicationId -Force
+        $config | Add-Member -NotePropertyName DiscordPresenceEnabled -NotePropertyValue $true -Force
+    }
     $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8
 }
 if ($ConnectTelegram) { $app = Start-Process -FilePath $target -ArgumentList '--connect-telegram' -WindowStyle Hidden -PassThru }

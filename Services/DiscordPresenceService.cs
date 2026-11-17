@@ -5,6 +5,7 @@ namespace DesktopIsland.Services;
 
 public sealed class DiscordPresenceService : IDisposable
 {
+    public const string DefaultApplicationId = "1572368124349784084";
     private DiscordRpcClient? client;
     private string applicationId = "";
     private long updatedAt;
@@ -30,7 +31,7 @@ public sealed class DiscordPresenceService : IDisposable
     }
     public void Update(bool enabled, string id, bool showTrack, MediaService media)
     {
-        id = id.Trim();
+        id = string.IsNullOrWhiteSpace(id) ? DefaultApplicationId : id.Trim();
         if (!enabled) { Dispose(); Status = "Выключено"; return; }
         if (!ValidApplicationId(id)) { Dispose(); Status = "Укажите Application ID приложения OSTROVOK"; return; }
         try
