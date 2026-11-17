@@ -1,4 +1,4 @@
-using DiscordRPC;
+﻿using DiscordRPC;
 using System.Text;
 
 namespace DesktopIsland.Services;
@@ -21,7 +21,7 @@ public sealed class DiscordPresenceService : IDisposable
     {
         var presence = new RichPresence { Details = "OSTROVOK", State = "Остров в режиме покоя", Type = ActivityType.Playing };
         presence.Assets = new Assets { LargeImageKey = "ostrovok", LargeImageText = "OSTROVOK · музыка и уведомления на Windows" };
-        var github = new DiscordRPC.Button { Label = "GitHub", Url = "https://github.com/bernicetownsend1955/OSTROVOK" };
+        var github = new DiscordRPC.Button { Label = "GitHub", Url = "https://github.com/rapichmoney/OSTROVOK" };
         presence.Buttons = [github];
         if (available && showTrack)
         {

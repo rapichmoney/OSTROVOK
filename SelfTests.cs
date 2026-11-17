@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Windows.Media;
 using DesktopIsland.Services;
 
@@ -29,7 +29,7 @@ internal static class SelfTests
             Check("Discord pause does not keep a running playback timer", pausedPresence.State.StartsWith("На паузе") && pausedPresence.Timestamps == null);
             var coverPresence = DiscordPresenceService.CreatePresence(true, true, true, "Track", "Artist", 10, 100, DateTime.UtcNow, "https://avatars.yandex.net/get-music-content/album/400x400", "https://music.yandex.ru/track/123");
             Check("Discord cover and song link use current public music metadata", coverPresence.Assets.LargeImageKey.StartsWith("https://avatars.yandex.net/") && coverPresence.Assets.SmallImageKey == "ostrovok" && coverPresence.Buttons.First().Url == "https://music.yandex.ru/track/123");
-            Check("Discord includes a GitHub shortcut within its two button limit", coverPresence.Buttons.Length == 2 && coverPresence.Buttons.Last().Label == "GitHub" && coverPresence.Buttons.Last().Url == "https://github.com/bernicetownsend1955/OSTROVOK");
+            Check("Discord includes a GitHub shortcut within its two button limit", coverPresence.Buttons.Length == 2 && coverPresence.Buttons.Last().Label == "GitHub" && coverPresence.Buttons.Last().Url == "https://github.com/rapichmoney/OSTROVOK");
             var hiddenCover = DiscordPresenceService.CreatePresence(false, true, true, "Private title", "Private artist", 10, 100, DateTime.UtcNow, "https://avatars.yandex.net/get-music-content/private/400x400", "https://music.yandex.ru/track/123");
             Check("Discord private mode hides artwork song link and image tooltip", hiddenCover.Assets.LargeImageKey == "ostrovok" && !hiddenCover.Assets.LargeImageText.Contains("Private") && !hiddenCover.Buttons.Any(x => x.Url.Contains("/track/")));
             var invalidCover = DiscordPresenceService.CreatePresence(true, true, false, "Track", "Artist", 10, 100, DateTime.UtcNow, "https://localhost/image?token=private", "https://example.com/track/123");
