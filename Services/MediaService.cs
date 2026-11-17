@@ -27,6 +27,8 @@ public sealed partial class MediaService : IDisposable
     public string Artist { get; private set; } = "Откройте музыку или видео в плеере";
     public string Source { get; private set; } = "";
     public string Album { get; private set; } = "";
+    public string ArtworkUrl => Source == "ru.yandex.desktop.music" && lastNativeState is { } native && native.TrackId == nativeTrackId && native.Title == Title ? native.ArtworkUrl : "";
+    public string TrackPageUrl => Source == "ru.yandex.desktop.music" && nativeTrackId.Length > 0 && nativeTrackId.All(char.IsAsciiDigit) ? "https://music.yandex.ru/track/" + nativeTrackId : "";
     public bool Playing { get; private set; }
     public bool Available => session != null || nativeAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)

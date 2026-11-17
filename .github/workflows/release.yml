@@ -39,7 +39,7 @@ jobs:
           [IO.File]::WriteAllText($archive.FullName + '.sha256', $hash + '  ' + $archive.Name + "`n")
           gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --title 'OSTROVOK 1.0' --notes-file RELEASE_NOTES.md --target $env:GITHUB_SHA
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "OSTROVOK $version" --notes-file RELEASE_NOTES.md --target $env:GITHUB_SHA
             if ($LASTEXITCODE -ne 0) { throw 'Release creation failed' }
           }
           gh release upload $tag $archive.FullName ($archive.FullName + '.sha256') --repo $env:GITHUB_REPOSITORY --clobber
