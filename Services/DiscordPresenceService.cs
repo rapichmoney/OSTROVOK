@@ -21,7 +21,8 @@ public sealed class DiscordPresenceService : IDisposable
     {
         var presence = new RichPresence { Details = "OSTROVOK", State = "Остров в режиме покоя", Type = ActivityType.Playing };
         presence.Assets = new Assets { LargeImageKey = "ostrovok", LargeImageText = "OSTROVOK · музыка и уведомления на Windows" };
-        presence.Buttons = [new DiscordRPC.Button { Label = "Скачать OSTROVOK", Url = "https://github.com/bernicetownsend1955/OSTROVOK/releases/latest" }];
+        var github = new DiscordRPC.Button { Label = "GitHub", Url = "https://github.com/bernicetownsend1955/OSTROVOK" };
+        presence.Buttons = [github];
         if (available && showTrack)
         {
             presence.Details = Limit(title); presence.State = Limit((playing ? "" : "На паузе · ") + artist);
@@ -33,7 +34,7 @@ public sealed class DiscordPresenceService : IDisposable
                 SmallImageKey = validCover ? "ostrovok" : null, SmallImageText = validCover ? playing ? "Воспроизводится · OSTROVOK" : "На паузе · OSTROVOK" : null
             };
             if (Uri.TryCreate(trackUrl, UriKind.Absolute, out var page) && page.Scheme == "https" && page.Host == "music.yandex.ru" && page.AbsolutePath.StartsWith("/track/", StringComparison.Ordinal) && page.AbsolutePath[7..].Length > 0 && page.AbsolutePath[7..].All(char.IsAsciiDigit) && string.IsNullOrEmpty(page.Query) && string.IsNullOrEmpty(page.UserInfo))
-                presence.Buttons = [new DiscordRPC.Button { Label = "Открыть трек", Url = trackUrl }];
+                presence.Buttons = [new DiscordRPC.Button { Label = "Открыть трек", Url = trackUrl }, github];
             if (playing && duration > 0) presence.Timestamps = new Timestamps { Start = now.AddSeconds(-Math.Clamp(position, 0, duration)), End = now.AddSeconds(Math.Max(0, duration - position)) };
         }
         else if (available) presence.State = playing ? "Плеер открыт" : "Музыка на паузе";

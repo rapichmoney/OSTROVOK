@@ -45,7 +45,7 @@ internal sealed class SettingsWindow : Window
         sidebar = new DockPanel { Margin = new Thickness(0, 0, 1, 0) };
         var brand = new StackPanel { Margin = new Thickness(20, 24, 10, 24) };
         brand.Children.Add(new TextBlock { Text = "Desktop Island", FontSize = 19, FontWeight = FontWeights.SemiBold });
-        brand.Children.Add(new TextBlock { Text = "Настройки · 1.0.1", Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 4, 0, 0) });
+        brand.Children.Add(new TextBlock { Text = "Настройки · 1.0.2", Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 4, 0, 0) });
         ((TextBlock)brand.Children[1]).SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         DockPanel.SetDock(brand, Dock.Top); sidebar.Children.Add(brand);
         var footer = new TextBlock { Text = "Изменения сохраняются\nна этом компьютере", Foreground = (Brush)FindResource("Muted"), FontSize = 12, Margin = new Thickness(20, 12, 12, 20) };
@@ -197,7 +197,7 @@ internal sealed class SettingsWindow : Window
                 Hint(content, "Нужен запущенный Discord. Буфер обмена, заметки и уведомления в статус не передаются.");
                 Section(content, "Запуск");
                 Toggle(content, "Запускать при входе в Windows", island.AutostartEnabled, island.SetAutostart);
-                Section(content, "Версия"); Hint(content, "Desktop Island 1.0.1 · Windows x64");
+                Section(content, "Версия"); Hint(content, "Desktop Island 1.0.2 · Windows x64");
                 Hint(content, "Код приложения написан отдельно. Данные и настройки Dyland не импортируются.");
                 Action(content, "Показать остров", island.PreviewIsland);
                 Action(content, "Открыть папку данных", island.ShowDataFolder);

@@ -28,11 +28,12 @@ internal static class SelfTests
             var pausedPresence = DiscordPresenceService.CreatePresence(true, true, false, "Synthetic title", "Synthetic artist", 10, 100, DateTime.UtcNow);
             Check("Discord pause does not keep a running playback timer", pausedPresence.State.StartsWith("На паузе") && pausedPresence.Timestamps == null);
             var coverPresence = DiscordPresenceService.CreatePresence(true, true, true, "Track", "Artist", 10, 100, DateTime.UtcNow, "https://avatars.yandex.net/get-music-content/album/400x400", "https://music.yandex.ru/track/123");
-            Check("Discord cover and song link use current public music metadata", coverPresence.Assets.LargeImageKey.StartsWith("https://avatars.yandex.net/") && coverPresence.Assets.SmallImageKey == "ostrovok" && coverPresence.Buttons.Single().Url == "https://music.yandex.ru/track/123");
+            Check("Discord cover and song link use current public music metadata", coverPresence.Assets.LargeImageKey.StartsWith("https://avatars.yandex.net/") && coverPresence.Assets.SmallImageKey == "ostrovok" && coverPresence.Buttons.First().Url == "https://music.yandex.ru/track/123");
+            Check("Discord includes a GitHub shortcut within its two button limit", coverPresence.Buttons.Length == 2 && coverPresence.Buttons.Last().Label == "GitHub" && coverPresence.Buttons.Last().Url == "https://github.com/bernicetownsend1955/OSTROVOK");
             var hiddenCover = DiscordPresenceService.CreatePresence(false, true, true, "Private title", "Private artist", 10, 100, DateTime.UtcNow, "https://avatars.yandex.net/get-music-content/private/400x400", "https://music.yandex.ru/track/123");
             Check("Discord private mode hides artwork song link and image tooltip", hiddenCover.Assets.LargeImageKey == "ostrovok" && !hiddenCover.Assets.LargeImageText.Contains("Private") && !hiddenCover.Buttons.Any(x => x.Url.Contains("/track/")));
             var invalidCover = DiscordPresenceService.CreatePresence(true, true, false, "Track", "Artist", 10, 100, DateTime.UtcNow, "https://localhost/image?token=private", "https://example.com/track/123");
-            Check("Discord rejects private or unrelated image and track URLs", invalidCover.Assets.LargeImageKey == "ostrovok" && invalidCover.Buttons.Single().Label == "Скачать OSTROVOK");
+            Check("Discord rejects private or unrelated image and track URLs", invalidCover.Assets.LargeImageKey == "ostrovok" && invalidCover.Buttons.Single().Label == "GitHub");
             var stableWidth = new StableMusicWidth();
             Check("first music title can start compact", stableWidth.Resolve(220, 544, true) == 220);
             Check("timed lyrics widen current music session", stableWidth.Resolve(544, 544, true) == 544);
