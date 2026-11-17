@@ -1,8 +1,8 @@
-# OSTROVOK 1.0
+﻿# OSTROVOK 1.0
 
 Dynamic Island как на iPhone — на компьютере с Windows. Бесплатно и с открытым исходным кодом.
 
-![Раскрытие острова с Save Me](https://raw.githubusercontent.com/bernicetownsend1955/OSTROVOK/main/docs/media/expansion.gif?v=save-me)
+![Раскрытие острова с Save Me](https://raw.githubusercontent.com/bernicetownsend1955/OSTROVOK/main/docs/media/expansion-save-me.gif)
 
 [Скриншоты и остальные анимации](https://github.com/bernicetownsend1955/OSTROVOK/blob/main/docs/SHOWCASE.md). Записи сделаны в приложении с треком XXXTentacion — Save Me и тестовым уведомлением.
 

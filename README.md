@@ -4,7 +4,7 @@ Dynamic Island как на iPhone — на компьютере с Windows. Бе
 
 OSTROVOK собирает музыку, текст песни и уведомления в небольшом острове у края экрана. Он раскрывается, когда нужны элементы управления, и сворачивается, когда вы возвращаетесь к работе.
 
-![Раскрытие OSTROVOK с XXXTentacion — Save Me](docs/media/expansion.gif?v=save-me)
+![Раскрытие OSTROVOK с XXXTentacion — Save Me](docs/media/expansion-save-me.gif)
 
 [Скриншоты, текст песни и уведомления в движении](docs/SHOWCASE.md)
 
