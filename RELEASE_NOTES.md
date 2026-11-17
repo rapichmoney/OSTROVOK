@@ -2,9 +2,9 @@
 
 Dynamic Island как на iPhone — на компьютере с Windows. Бесплатно и с открытым исходным кодом.
 
-![Раскрытие острова](https://raw.githubusercontent.com/bernicetownsend1955/OSTROVOK/main/docs/media/expansion.gif)
+![Раскрытие острова с Save Me](https://raw.githubusercontent.com/bernicetownsend1955/OSTROVOK/main/docs/media/expansion.gif?v=save-me)
 
-[Скриншоты и остальные анимации](https://github.com/bernicetownsend1955/OSTROVOK/blob/main/docs/SHOWCASE.md). Записи сделаны в приложении с демонстрационным треком и тестовым уведомлением.
+[Скриншоты и остальные анимации](https://github.com/bernicetownsend1955/OSTROVOK/blob/main/docs/SHOWCASE.md). Записи сделаны в приложении с треком XXXTentacion — Save Me и тестовым уведомлением.
 
 Музыка, текст песни и уведомления в небольшом острове у края экрана. Раскройте его, чтобы управлять плеером, открыть буфер обмена, заметки или календарь.
 
