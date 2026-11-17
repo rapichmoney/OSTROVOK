@@ -10,7 +10,7 @@ public partial class MainWindow
     {
         if (CompactTrack.Text == text) return;
         int revision = ++compactTextRevision;
-        bool animate = Motion.Enabled && !trackVisualPending && !expanded && Header.IsVisible && !HasCompactNotification && CompactTrack.Text.Length > 0 && text.Length > 0 && CompactTextContent.ActualWidth > 1 && CompactTextContent.ActualHeight > 1;
+        bool animate = Motion.Enabled && !expanded && Header.IsVisible && !HasCompactNotification && CompactTrack.Text.Length > 0 && text.Length > 0 && CompactTextContent.ActualWidth > 1 && CompactTextContent.ActualHeight > 1;
         CompactTextSnapshot.BeginAnimation(OpacityProperty, null);
         CompactTextSnapshot.Visibility = Visibility.Collapsed;
         if (animate)

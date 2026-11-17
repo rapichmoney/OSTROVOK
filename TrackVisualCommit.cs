@@ -16,18 +16,11 @@ public partial class MainWindow
         if ((!verification && App.VerificationMode) || !IsLoaded || HasCompactNotification || Shell.ActualWidth < 1 || Shell.ActualHeight < 1) return;
         if (!trackVisualPending)
         {
-            StopCompactTextTransition();
-            Motion.ClearContentMotion(Shell);
-            var dpi = VisualTreeHelper.GetDpi(this);
-            var image = new RenderTargetBitmap((int)Math.Ceiling(ActualWidth * dpi.DpiScaleX), (int)Math.Ceiling(ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-            image.Render(Shell); image.Freeze();
-            TrackVisualSnapshot.BeginAnimation(OpacityProperty, null);
-            TrackVisualSnapshot.Source = image; TrackVisualSnapshot.Opacity = 1; TrackVisualSnapshot.Visibility = Visibility.Visible;
             heldWindowWidth = Width; heldWindowHeight = Height;
         }
         ++trackVisualRevision; trackCommitQueued = false;
         trackVisualPending = true; pendingVisualKey = key; lyricsReadyVisualKey = "";
-        Shell.BeginAnimation(OpacityProperty, null); Shell.Opacity = 0;
+        BeginTrackIntroduction();
     }
     private void TryCommitTrackVisual()
     {
@@ -43,15 +36,9 @@ public partial class MainWindow
         {
             trackCommitQueued = false;
             if (revision != trackVisualRevision || !trackVisualPending || CurrentVisualKey != pendingVisualKey || !media.ArtworkReady || (settings.LyricsEnabled && lyricsReadyVisualKey != pendingVisualKey)) return;
-            UpdateLayout(); StopCompactTextTransition(); BeginTrackIntroduction(); trackVisualPending = false;
+            UpdateLayout(); trackVisualPending = false;
             RefreshIdleContent(); UpdateLayout();
             if (expanded && Navigation.SelectedIndex == 0) AnimateExpansion(true);
-            Motion.Enter(Shell, 0, 280);
-            Motion.Tween(TrackVisualSnapshot, OpacityProperty, 0, 240, completed: () =>
-            {
-                if (revision != trackVisualRevision) return;
-                TrackVisualSnapshot.Source = null; TrackVisualSnapshot.Visibility = Visibility.Collapsed;
-            });
         }));
     }
     private void CancelTrackVisualHold()
