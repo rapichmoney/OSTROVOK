@@ -25,9 +25,13 @@ public sealed partial class MediaService : IDisposable
     private readonly Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
     private bool disposed, refreshPending;
     private int refreshQueued;
+    private long nativeRevision;
+    private readonly MediaSourceStability sourceStability = new();
+    private string source = "";
+    public int SourceChangeCount { get; private set; }
     public string Title { get; private set; } = "Ничего не играет";
     public string Artist { get; private set; } = "Откройте музыку или видео в плеере";
-    public string Source { get; private set; } = "";
+    public string Source { get => source; private set { if (source != value) { source = value; SourceChangeCount++; } } }
     public string Album { get; private set; } = "";
     public bool IsVideo { get; private set; }
     public static bool VideoSource(string source, string artist, Windows.Media.MediaPlaybackType? type) =>
@@ -42,14 +46,16 @@ public sealed partial class MediaService : IDisposable
     public bool Available => session != null || nativeAvailable || windowVideoAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)
     {
-        if (Source != "ru.yandex.desktop.music" && (session != null && !IsVideo || IsVideo && !state.Playing && Playing)) return false;
         if (string.IsNullOrWhiteSpace(state.Title) || state.Duration <= 0) return false;
+        if (lastNativeState == null || lastNativeState.Playing != state.Playing || lastNativeState.TrackId != state.TrackId || lastNativeState.Title != state.Title || lastNativeState.Artist != state.Artist) nativeRevision++;
+        lastNativeState = state; nativeMetadataAt = Environment.TickCount64;
+        if (Source != "ru.yandex.desktop.music" && (session != null && !IsVideo || IsVideo && !state.Playing)) return false;
+        if (state.Playing) sourceStability.Accept(Source, "ru.yandex.desktop.music", true, Environment.TickCount64);
         bool sourceChanged = Source != "ru.yandex.desktop.music";
         bool changed = sourceChanged || !Available || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist || Playing != state.Playing;
         bool trackChanged = sourceChanged || nativeTrackId != state.TrackId;
         if (sourceChanged) requestedArtwork = "";
         if (trackChanged) { ArtworkReady = string.IsNullOrEmpty(state.ArtworkUrl); if (ArtworkReady) Artwork = null; Album = ""; }
-        lastNativeState = state; nativeMetadataAt = Environment.TickCount64;
         if (IsVideo) DisconnectSession();
         windowVideoAvailable = false;
         IsVideo = false;
@@ -95,6 +101,7 @@ public sealed partial class MediaService : IDisposable
         updating = true;
         try
         {
+            long revision = nativeRevision;
             Sessions = manager.GetSessions().Where(x => !ExcludedMediaSource(x.SourceAppUserModelId)).ToArray();
             var candidates = new List<(GlobalSystemMediaTransportControlsSession Session, int Priority)>();
             foreach (var candidate in Sessions)
@@ -112,12 +119,17 @@ public sealed partial class MediaService : IDisposable
             }
             var next = candidates.OrderByDescending(x => x.Priority)
                 .ThenByDescending(x => x.Session.SourceAppUserModelId == SelectedSource)
+                .ThenByDescending(x => x.Session.SourceAppUserModelId == Source)
                 .ThenByDescending(x => ReferenceEquals(x.Session, manager.GetCurrentSession()))
                 .Select(x => x.Session).FirstOrDefault();
-            bool nativeMusicPlaying = Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000;
             var browserVideo = App.SelfTestMode || App.VerificationMode ? null : await YouTubeBrowserBridge.Shared.ReadAsync();
-            if (!nativeMusicPlaying && !candidates.Any(x => x.Priority == 3) && browserVideo != null && (browserVideo.Playing || !candidates.Any(x => x.Priority > 0)))
+            if (revision != nativeRevision) { refreshPending = true; return; }
+            bool nativeMusicPlaying = lastNativeState is { Playing: true } && Environment.TickCount64 - nativeMetadataAt < 8000;
+            if (nativeMusicPlaying && Source != "ru.yandex.desktop.music" && !candidates.Any(x => x.Priority == 3 && x.Session.SourceAppUserModelId != "ru.yandex.desktop.music"))
+            { UpdateNativePlayback(lastNativeState!); Updated?.Invoke(); return; }
+            if (!nativeMusicPlaying && !candidates.Any(x => x.Priority == 3) && browserVideo != null && (browserVideo.Playing || Source == "youtube.bridge" || next == null && lastNativeState == null))
             {
+                if (!sourceStability.Accept(Source, "youtube.bridge", false, Environment.TickCount64)) return;
                 bool changed = Source != "youtube.bridge" || youtubeId != browserVideo.Id;
                 DisconnectSession(); nativeAvailable = false; windowVideoAvailable = true;
                 Source = "youtube.bridge"; IsVideo = true; youtubeId = browserVideo.Id;
@@ -131,8 +143,10 @@ public sealed partial class MediaService : IDisposable
             if (!nativeMusicPlaying && !candidates.Any(x => x.Priority > 0))
             {
                 var video = await youTube.ReadAsync();
+                if (revision != nativeRevision) { refreshPending = true; return; }
                 if (video != null)
                 {
+                    if (!sourceStability.Accept(Source, "youtube.window", false, Environment.TickCount64)) return;
                     DisconnectSession(); nativeAvailable = false; windowVideoAvailable = true;
                     Source = "youtube.window"; IsVideo = true; Title = video.Title; Artist = "YouTube"; Album = "";
                     Playing = video.Playing; Artwork = null; ArtworkReady = true; Duration = 0;
@@ -153,18 +167,23 @@ public sealed partial class MediaService : IDisposable
                 {
                     DisconnectSession(); session = null; nativeAvailable = true; return;
                 }
+                if (!sourceStability.Accept(Source, "", false, Environment.TickCount64)) return;
                 nativeAvailable = false;
                 DisconnectSession();
                 session = null; Title = "Ничего не играет"; Artist = "Откройте музыку или видео в плеере";
                 Artwork = null; Source = ""; Playing = false; IsVideo = false; CanPlay = CanNext = CanPrevious = CanSeek = false;
                 Duration = 0; Album = ""; clock.Sample(0, 0, false, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); lastTrack = ""; Updated?.Invoke(); return;
             }
+            var properties = await next.TryGetMediaPropertiesAsync();
+            if (revision != nativeRevision) { refreshPending = true; return; }
+            bool nextPlayingMusic = !VideoSource(next.SourceAppUserModelId, properties.Artist, properties.PlaybackType) &&
+                next.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            if (!sourceStability.Accept(Source, next.SourceAppUserModelId, nextPlayingMusic, Environment.TickCount64)) return;
             if (!ReferenceEquals(session, next))
             {
                 DisconnectSession(); session = next;
                 session.MediaPropertiesChanged += SessionChanged; session.PlaybackInfoChanged += SessionChanged; session.TimelinePropertiesChanged += SessionChanged;
             }
-            var properties = await next.TryGetMediaPropertiesAsync();
             nativeAvailable = false;
             var playback = next.GetPlaybackInfo();
             var timeline = next.GetTimelineProperties();
@@ -194,7 +213,9 @@ public sealed partial class MediaService : IDisposable
                         using var input = await properties.Thumbnail.OpenReadAsync();
                         using var stream = input.AsStreamForRead();
                         var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.DecodePixelWidth = 240; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); Artwork = bitmap; ArtworkReady = true;
+                        bitmap.DecodePixelWidth = 240; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
+                        if (track != Source + "\n" + Title + "\n" + Artist) { refreshPending = true; return; }
+                        Artwork = bitmap; ArtworkReady = true;
                     }
                     catch (Exception) { ArtworkReady = true; }
                 }

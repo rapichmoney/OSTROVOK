@@ -16,6 +16,18 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            var sourceHold = new MediaSourceStability();
+            Check("short video and empty-session observations cannot replace music", !sourceHold.Accept("music", "video", false, 1000) && !sourceHold.Accept("music", "video", false, 1600) && sourceHold.Accept("music", "music", true, 1700) && !sourceHold.Accept("music", "", false, 1800));
+            Check("confirmed music pause switches to video after a stable interval", !sourceHold.Accept("music", "video", false, 2000) && !sourceHold.Accept("music", "video", false, 3199) && sourceHold.Accept("music", "video", false, 3200));
+            Check("resumed music wins immediately and clears the pending video switch", sourceHold.Accept("video", "music", true, 3300) && !sourceHold.Accept("music", "video", false, 3400));
+            bool intermittentVideoHeld = true;
+            for (int frame = 0; frame < 120; frame++)
+            {
+                long now = 4000 + frame * 16;
+                if (frame % 10 == 0) intermittentVideoHeld &= !sourceHold.Accept("music", "video", false, now);
+                else sourceHold.Accept("music", "music", true, now);
+            }
+            Check("intermittent lower priority observations never flash over the music", intermittentVideoHeld);
             using (var videoOwner = new MediaService())
             {
                 typeof(MediaService).GetProperty(nameof(MediaService.Source))!.SetValue(videoOwner, "youtube.bridge");
