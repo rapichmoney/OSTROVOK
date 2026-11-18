@@ -1,4 +1,6 @@
-﻿# OSTROVOK
+# OSTROVOK
+
+[GitHub](https://github.com/rapichmoney) · [Написать мне](https://t.me/rapichmoney) · [Telegram-канал](https://t.me/rapichlinkmoney)
 
 Dynamic Island как на iPhone — на компьютере с Windows. Бесплатно и с открытым исходным кодом.
 
