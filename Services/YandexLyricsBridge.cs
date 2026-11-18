@@ -137,7 +137,7 @@ public sealed class YandexLyricsBridge
         return Status = "Плеер запущен. Дождитесь загрузки и повторите подключение.";
     }
 
-    private sealed class CdpConnection : IDisposable
+    internal sealed class CdpConnection : IDisposable
     {
         private readonly ClientWebSocket socket = new();
         private int sequence;

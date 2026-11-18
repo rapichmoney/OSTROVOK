@@ -34,8 +34,10 @@ public sealed partial class MediaService : IDisposable
         type == Windows.Media.MediaPlaybackType.Video || artist.Contains("YouTube", StringComparison.OrdinalIgnoreCase) || source.Contains("youtube", StringComparison.OrdinalIgnoreCase) ||
         (type != Windows.Media.MediaPlaybackType.Music && new[] { "chrome", "msedge", "firefox", "browser" }.Any(x => source.Contains(x, StringComparison.OrdinalIgnoreCase)));
     public static int SessionPriority(bool playing, bool video) => playing ? video ? 2 : 3 : 0;
-    public string ArtworkUrl => Source == "ru.yandex.desktop.music" && lastNativeState is { } native && native.TrackId == nativeTrackId && native.Title == Title ? native.ArtworkUrl : "";
-    public string TrackPageUrl => Source == "ru.yandex.desktop.music" && nativeTrackId.Length > 0 && nativeTrackId.All(char.IsAsciiDigit) ? "https://music.yandex.ru/track/" + nativeTrackId : "";
+    public static bool ExcludedMediaSource(string source) => source.Contains("telegram", StringComparison.OrdinalIgnoreCase) || source.Contains("tdesktop", StringComparison.OrdinalIgnoreCase);
+    private string youtubeId = "";
+    public string ArtworkUrl => Source == "youtube.bridge" ? "https://i.ytimg.com/vi/" + youtubeId + "/hqdefault.jpg" : Source == "ru.yandex.desktop.music" && lastNativeState is { } native && native.TrackId == nativeTrackId && native.Title == Title ? native.ArtworkUrl : "";
+    public string TrackPageUrl => Source == "youtube.bridge" ? "https://www.youtube.com/watch?v=" + youtubeId : Source == "ru.yandex.desktop.music" && nativeTrackId.Length > 0 && nativeTrackId.All(char.IsAsciiDigit) ? "https://music.yandex.ru/track/" + nativeTrackId : "";
     public bool Playing { get; private set; }
     public bool Available => session != null || nativeAvailable || windowVideoAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)
@@ -93,7 +95,7 @@ public sealed partial class MediaService : IDisposable
         updating = true;
         try
         {
-            Sessions = manager.GetSessions().ToArray();
+            Sessions = manager.GetSessions().Where(x => !ExcludedMediaSource(x.SourceAppUserModelId)).ToArray();
             var candidates = new List<(GlobalSystemMediaTransportControlsSession Session, int Priority)>();
             foreach (var candidate in Sessions)
             {
@@ -110,6 +112,19 @@ public sealed partial class MediaService : IDisposable
                 .ThenByDescending(x => ReferenceEquals(x.Session, manager.GetCurrentSession()))
                 .Select(x => x.Session).FirstOrDefault();
             bool nativeMusicPlaying = Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000;
+            var browserVideo = await YouTubeBrowserBridge.Shared.ReadAsync();
+            if (!nativeMusicPlaying && !candidates.Any(x => x.Priority == 3) && browserVideo != null && (browserVideo.Playing || !candidates.Any(x => x.Priority > 0)))
+            {
+                bool changed = Source != "youtube.bridge" || youtubeId != browserVideo.Id;
+                DisconnectSession(); nativeAvailable = false; windowVideoAvailable = true;
+                Source = "youtube.bridge"; IsVideo = true; youtubeId = browserVideo.Id;
+                Title = browserVideo.Title; Artist = browserVideo.Artist; Album = "";
+                Playing = browserVideo.Playing; Duration = browserVideo.Duration;
+                CanPlay = CanNext = CanPrevious = CanSeek = false;
+                clock.Sample(browserVideo.Position + (Playing ? (Environment.TickCount64 - browserVideo.Received) / 1000d : 0), Duration, Playing, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+                if (changed) { Artwork = null; ArtworkReady = false; LoadYouTubeArtwork(youtubeId); }
+                Updated?.Invoke(); return;
+            }
             if (!nativeMusicPlaying && !candidates.Any(x => x.Priority > 0))
             {
                 var video = await youTube.ReadAsync();

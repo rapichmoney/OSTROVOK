@@ -16,6 +16,17 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("Telegram voice playback never enters music selection", MediaService.ExcludedMediaSource("TelegramDesktop.TDesktop") && MediaService.ExcludedMediaSource("org.telegram.desktop") && !MediaService.ExcludedMediaSource("ru.yandex.desktop.music") && !MediaService.ExcludedMediaSource("chrome"));
+            Check("YouTube browser adapter ignores unrelated pages", YouTubeBrowserBridge.IsYouTubePage("https://www.youtube.com/watch?v=abcdefghijk") && !YouTubeBrowserBridge.IsYouTubePage("https://youtube.com.example.org/watch?v=abcdefghijk") && !YouTubeBrowserBridge.IsYouTubePage("https://mail.example.com/"));
+            using var youtubeFixture = JsonDocument.Parse("""{"id":"abcdefghijk","title":"Example video","artist":"Example channel","playing":true,"position":20,"duration":300}""");
+            Check("YouTube adapter reads title channel playing state and timeline", YouTubeBrowserBridge.Parse(youtubeFixture.RootElement) is { Title: "Example video", Artist: "Example channel", Playing: true, Position: 20, Duration: 300 });
+            var youtubePresence = DiscordPresenceService.CreatePresence(true, true, true, "Example video", "Example channel", 20, 300, DateTime.UtcNow, "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg", "https://www.youtube.com/watch?v=abcdefghijk", true);
+            Check("YouTube RPC contains video thumbnail link and watch timer", youtubePresence.Type == DiscordRPC.ActivityType.Watching && youtubePresence.Assets.LargeImageKey.Contains("i.ytimg.com") && youtubePresence.Buttons.First().Label == "Открыть видео" && youtubePresence.Timestamps != null);
+            if (args.Contains("--youtube-browser-current"))
+            {
+                var youtube = await YouTubeBrowserBridge.Shared.ReadAsync();
+                Check("live browser YouTube connection", youtube != null, youtube == null ? YouTubeBrowserBridge.Shared.Status : $"title={youtube.Title}, artist={youtube.Artist}, playing={youtube.Playing}, position={youtube.Position:0}, duration={youtube.Duration:0}");
+            }
             Check("YouTube fallback extracts only the displayed video title", YouTubeWindowProbe.VideoTitle("Example - YouTube — Яндекс Браузер") == "Example" && YouTubeWindowProbe.VideoTitle("Unrelated browser window") == null);
             if (args.Contains("--youtube-window-current"))
             {

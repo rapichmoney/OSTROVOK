@@ -28,7 +28,7 @@ public sealed class DiscordPresenceService : IDisposable
             presence.Details = Limit(title); presence.State = Limit((playing ? "" : "На паузе · ") + artist);
             presence.Type = video ? ActivityType.Watching : ActivityType.Listening;
             if (video && string.IsNullOrWhiteSpace(artist)) presence.State = playing ? "Видео" : "Видео на паузе";
-            bool validCover = Uri.TryCreate(artworkUrl, UriKind.Absolute, out var cover) && cover.Scheme == "https" && cover.Host.EndsWith(".yandex.net", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(cover.Query) && string.IsNullOrEmpty(cover.UserInfo);
+            bool validCover = Uri.TryCreate(artworkUrl, UriKind.Absolute, out var cover) && cover.Scheme == "https" && (cover.Host.EndsWith(".yandex.net", StringComparison.OrdinalIgnoreCase) || video && cover.Host == "i.ytimg.com" && System.Text.RegularExpressions.Regex.IsMatch(cover.AbsolutePath, "^/vi/[a-zA-Z0-9_-]{11}/hqdefault[.]jpg$")) && string.IsNullOrEmpty(cover.Query) && string.IsNullOrEmpty(cover.UserInfo);
             presence.Assets = new Assets
             {
                 LargeImageKey = validCover ? artworkUrl : "ostrovok", LargeImageText = Limit(title + " · " + artist),
@@ -36,6 +36,8 @@ public sealed class DiscordPresenceService : IDisposable
             };
             if (Uri.TryCreate(trackUrl, UriKind.Absolute, out var page) && page.Scheme == "https" && page.Host == "music.yandex.ru" && page.AbsolutePath.StartsWith("/track/", StringComparison.Ordinal) && page.AbsolutePath[7..].Length > 0 && page.AbsolutePath[7..].All(char.IsAsciiDigit) && string.IsNullOrEmpty(page.Query) && string.IsNullOrEmpty(page.UserInfo))
                 presence.Buttons = [new DiscordRPC.Button { Label = "Открыть трек", Url = trackUrl }, github];
+            if (video && Uri.TryCreate(trackUrl, UriKind.Absolute, out var youtube) && youtube.Scheme == "https" && youtube.Host == "www.youtube.com" && youtube.AbsolutePath == "/watch" && System.Text.RegularExpressions.Regex.IsMatch(youtube.Query, "^[?]v=[a-zA-Z0-9_-]{11}$") && string.IsNullOrEmpty(youtube.UserInfo))
+                presence.Buttons = [new DiscordRPC.Button { Label = "Открыть видео", Url = trackUrl }, github];
             if (playing && duration > 0) presence.Timestamps = new Timestamps { Start = now.AddSeconds(-Math.Clamp(position, 0, duration)), End = now.AddSeconds(Math.Max(0, duration - position)) };
         }
         else if (available) presence.State = playing ? "Плеер открыт" : "Музыка на паузе";
