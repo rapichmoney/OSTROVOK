@@ -8,12 +8,13 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.0.9</Version>
+    <Version>1.0.10</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <DefaultItemExcludes>$(DefaultItemExcludes);inspection/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup><EmbeddedResource Include="Services\YandexAdapter.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Services\YouTubeControls.js" /></ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\Fonts\AminahsSchoolbookSansSerif-Bold.ttf" />
     <Content Include="Assets\Fonts\OFL-Aminahs.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

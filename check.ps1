@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 node "$PSScriptRoot\tools\verify_yandex_adapter.mjs"
 if ($LASTEXITCODE -ne 0) { throw 'Yandex adapter checks failed' }
+node "$PSScriptRoot\tools\verify_youtube_controls.mjs"
+if ($LASTEXITCODE -ne 0) { throw 'YouTube control checks failed' }
 dotnet build "$PSScriptRoot\DesktopIsland.csproj" -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 $testExe = Join-Path $PSScriptRoot 'bin\Release\net9.0-windows10.0.19041.0\DesktopIsland.exe'

@@ -16,6 +16,10 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("YouTube playback command loads its bundled adapter", YouTubeBrowserBridge.ToggleExpression("abcdefghijk").Contains("video.pause()"));
+            bool rejectedVideoId = false;
+            try { YouTubeBrowserBridge.ToggleExpression("invalid-video-id"); } catch (ArgumentException) { rejectedVideoId = true; }
+            Check("YouTube playback command rejects invalid video identifiers", rejectedVideoId);
             var sourceHold = new MediaSourceStability();
             Check("short video and empty-session observations cannot replace music", !sourceHold.Accept("music", "video", false, 1000) && !sourceHold.Accept("music", "video", false, 1600) && sourceHold.Accept("music", "music", true, 1700) && !sourceHold.Accept("music", "", false, 1800));
             Check("confirmed music pause switches to video after a stable interval", !sourceHold.Accept("music", "video", false, 2000) && !sourceHold.Accept("music", "video", false, 3199) && sourceHold.Accept("music", "video", false, 3200));

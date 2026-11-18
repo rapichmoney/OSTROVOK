@@ -17,6 +17,20 @@ internal sealed class YouTubeBrowserBridge
     private Task<YandexLyricsBridge.CdpConnection>? connecting;
     private readonly Dictionary<string, string> sessions = [];
     private long retryAt;
+    private readonly SemaphoreSlim operations = new(1, 1);
+    private string? selectedSession;
+    private Uri? selectedSocket;
+    private static readonly Lazy<string> controls = new(() =>
+    {
+        using var stream = typeof(YouTubeBrowserBridge).Assembly.GetManifestResourceStream("DesktopIsland.Services.YouTubeControls.js")!;
+        using var reader = new StreamReader(stream); return reader.ReadToEnd();
+    });
+    internal bool CanControl(string id) => cached?.Id == id && Environment.TickCount64 - cached.Received < 8000 && (browser != null && selectedSession != null || selectedSocket != null);
+    internal static string ToggleExpression(string id)
+    {
+        if (!Regex.IsMatch(id, "^[a-zA-Z0-9_-]{11}$")) throw new ArgumentException("Invalid video ID", nameof(id));
+        return controls.Value + "(" + JsonSerializer.Serialize(id) + ")";
+    }
     internal Video? LastVideo => cached;
     internal static Uri? ParseEndpoint(string[] lines)
     {
@@ -57,6 +71,37 @@ internal sealed class YouTubeBrowserBridge
     }
     internal async Task<Video?> ReadAsync()
     {
+        await operations.WaitAsync();
+        try { return await ReadCoreAsync(); }
+        finally { operations.Release(); }
+    }
+    internal async Task<bool> ToggleAsync(string expectedId)
+    {
+        string? requestedSession = selectedSession;
+        Uri? requestedSocket = selectedSocket;
+        await operations.WaitAsync();
+        try
+        {
+            if (!CanControl(expectedId) || selectedSession != requestedSession || selectedSocket != requestedSocket) return false;
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            YandexLyricsBridge.CdpConnection connection;
+            bool temporary = browser == null;
+            if (browser != null) connection = browser;
+            else { connection = new YandexLyricsBridge.CdpConnection(); await connection.OpenAsync(selectedSocket!, deadline.Token); }
+            JsonElement reply;
+            try { reply = await connection.EvaluateAsync(ToggleExpression(expectedId), deadline.Token, temporary ? null : selectedSession); }
+            finally { if (temporary) connection.Dispose(); }
+            if (reply.ValueKind != JsonValueKind.Object || !reply.GetProperty("ok").GetBoolean()) return false;
+            cached = cached! with { Playing = reply.GetProperty("playing").GetBoolean(), Position = reply.GetProperty("position").GetDouble(), Duration = reply.GetProperty("duration").GetDouble(), Received = Environment.TickCount64 };
+            sampledAt = Environment.TickCount64;
+            return true;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException or JsonException or InvalidOperationException or KeyNotFoundException)
+        { sampledAt = 0; return false; }
+        finally { operations.Release(); }
+    }
+    private async Task<Video?> ReadCoreAsync()
+    {
         if (Environment.TickCount64 - sampledAt < 1500) return cached;
         sampledAt = Environment.TickCount64;
         try
@@ -74,11 +119,14 @@ internal sealed class YouTubeBrowserBridge
                 ? JsonDocument.Parse((await browser.CallAsync("Target.getTargets", new { }, deadline.Token)).GetProperty("targetInfos").GetRawText())
                 : JsonDocument.Parse(await http.GetStringAsync("http://127.0.0.1:9227/json/list", deadline.Token));
             Video? found = null;
+            string? foundSession = null;
+            Uri? foundSocket = null;
             foreach (var target in targets.RootElement.EnumerateArray())
             {
                 if (target.GetProperty("type").GetString() != "page" || !IsYouTubePage(target.GetProperty("url").GetString() ?? "")) continue;
                 YandexLyricsBridge.CdpConnection connection;
                 string? pageSession = null;
+                Uri? pageSocket = null;
                 bool temporary = browser == null;
                 if (browser != null)
                 {
@@ -93,6 +141,7 @@ internal sealed class YouTubeBrowserBridge
                 else
                 {
                     if (!Uri.TryCreate(target.GetProperty("webSocketDebuggerUrl").GetString(), UriKind.Absolute, out var socket) || socket.Scheme != "ws" || socket.Host != "127.0.0.1" || socket.Port != 9227) continue;
+                    pageSocket = socket;
                     connection = new YandexLyricsBridge.CdpConnection();
                     await connection.OpenAsync(socket, deadline.Token);
                 }
@@ -112,14 +161,16 @@ internal sealed class YouTubeBrowserBridge
                 }
                 finally { if (temporary) connection.Dispose(); }
                 var video = Parse(data);
-                if (video != null && (found == null || video.Playing)) found = video;
+                if (video != null && (found == null || video.Playing)) { found = video; foundSession = pageSession; foundSocket = pageSocket; }
                 if (video?.Playing == true) break;
             }
-            cached = found; Status = found == null ? "Нет видео YouTube" : "YouTube подключён";
+            cached = found; selectedSession = foundSession; selectedSocket = foundSocket;
+            Status = found == null ? "Нет видео YouTube" : "YouTube подключён";
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or WebSocketException or JsonException or InvalidOperationException or KeyNotFoundException)
         {
             browser?.Dispose(); browser = null; connecting = null; sessions.Clear(); retryAt = Environment.TickCount64 + 30000;
+            selectedSession = null; selectedSocket = null;
             Status = "Ожидаем подключение браузера";
             if (cached != null && Environment.TickCount64 - cached.Received > 8000) cached = null;
         }

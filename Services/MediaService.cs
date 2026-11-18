@@ -135,7 +135,7 @@ public sealed partial class MediaService : IDisposable
                 Source = "youtube.bridge"; IsVideo = true; youtubeId = browserVideo.Id;
                 Title = browserVideo.Title; Artist = browserVideo.Artist; Album = "";
                 Playing = browserVideo.Playing; Duration = browserVideo.Duration;
-                CanPlay = CanNext = CanPrevious = CanSeek = false;
+                CanPlay = YouTubeBrowserBridge.Shared.CanControl(youtubeId); CanNext = CanPrevious = CanSeek = false;
                 clock.Sample(browserVideo.Position + (Playing ? (Environment.TickCount64 - browserVideo.Received) / 1000d : 0), Duration, Playing, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
                 if (changed) { Artwork = null; ArtworkReady = false; LoadYouTubeArtwork(youtubeId); }
                 Updated?.Invoke(); return;
@@ -245,6 +245,13 @@ public sealed partial class MediaService : IDisposable
     }
     public async Task<bool> CommandAsync(string command, double seconds = 0)
     {
+        if (Source == "youtube.bridge")
+        {
+            if (command != "toggle") return false;
+            bool success = await YouTubeBrowserBridge.Shared.ToggleAsync(youtubeId);
+            if (success) await RefreshAsync();
+            return success;
+        }
         var current = session;
         if (current == null) return false;
         try
