@@ -94,6 +94,7 @@ public partial class MainWindow : Window
     private void InitializeNative(object? sender, EventArgs e)
     {
         handle = new WindowInteropHelper(this).Handle;
+        WindowInterop.HideFromAltTab(handle);
         source = HwndSource.FromHwnd(handle); source?.AddHook(WindowMessage);
         if (App.VerificationMode) return;
         hotkeyRegistered = WindowInterop.RegisterHotKey(handle, WindowInterop.HotkeyId, 0x4003, 0x20);

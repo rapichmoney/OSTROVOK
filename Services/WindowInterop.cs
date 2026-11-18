@@ -4,6 +4,15 @@ namespace DesktopIsland.Services;
 
 internal static class WindowInterop
 {
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern IntPtr GetWindowLongPtr(IntPtr window, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] private static extern IntPtr SetWindowLongPtr(IntPtr window, int index, IntPtr value);
+    internal static void HideFromAltTab(IntPtr window)
+    {
+        const int extendedStyle = -20;
+        long style = GetWindowLongPtr(window, extendedStyle).ToInt64();
+        SetWindowLongPtr(window, extendedStyle, new IntPtr((style | 0x80L) & ~0x40000L));
+        SetWindowPos(window, IntPtr.Zero, 0, 0, 0, 0, 0x37);
+    }
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
     internal static void SetAnimatedBounds(IntPtr window, double left, double top, double width, double height, System.Windows.DpiScale dpi)
     {
