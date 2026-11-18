@@ -42,7 +42,7 @@ public sealed partial class MediaService : IDisposable
     public bool Available => session != null || nativeAvailable || windowVideoAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)
     {
-        if (session != null && Source != "ru.yandex.desktop.music" && (!IsVideo || !state.Playing && Playing)) return false;
+        if (Source != "ru.yandex.desktop.music" && (session != null && !IsVideo || IsVideo && !state.Playing && Playing)) return false;
         if (string.IsNullOrWhiteSpace(state.Title) || state.Duration <= 0) return false;
         bool sourceChanged = Source != "ru.yandex.desktop.music";
         bool changed = sourceChanged || !Available || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist || Playing != state.Playing;
@@ -103,7 +103,10 @@ public sealed partial class MediaService : IDisposable
                 {
                     var metadata = await candidate.TryGetMediaPropertiesAsync();
                     bool video = VideoSource(candidate.SourceAppUserModelId, metadata.Artist, metadata.PlaybackType);
-                    candidates.Add((candidate, SessionPriority(candidate.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing, video)));
+                    bool candidatePlaying = candidate.SourceAppUserModelId == "ru.yandex.desktop.music" && lastNativeState != null && Environment.TickCount64 - nativeMetadataAt < 8000
+                        ? lastNativeState.Playing
+                        : candidate.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                    candidates.Add((candidate, SessionPriority(candidatePlaying, video)));
                 }
                 catch (Exception) { /* One closing browser tab must not hide the other players. */ }
             }

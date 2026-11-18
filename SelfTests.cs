@@ -16,6 +16,14 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            using (var videoOwner = new MediaService())
+            {
+                typeof(MediaService).GetProperty(nameof(MediaService.Source))!.SetValue(videoOwner, "youtube.bridge");
+                typeof(MediaService).GetProperty(nameof(MediaService.IsVideo))!.SetValue(videoOwner, true);
+                typeof(MediaService).GetProperty(nameof(MediaService.Playing))!.SetValue(videoOwner, true);
+                var pausedMusic = new YandexLyricsBridge.PlaybackState(8, .5, "paused", false, false, true, true, "Paused song", "Artist", 120, false);
+                Check("paused Yandex poll cannot replace a playing browser video without SMTC", !videoOwner.UpdateNativePlayback(pausedMusic) && videoOwner.Source == "youtube.bridge" && videoOwner.Playing);
+            }
             Check("approval endpoint uses discovered loopback port", YouTubeBrowserBridge.ParseEndpoint(["9222", "/devtools/browser/abc-123"])?.AbsoluteUri == "ws://127.0.0.1:9222/devtools/browser/abc-123");
             Check("approval discovery rejects malformed or external endpoints", YouTubeBrowserBridge.ParseEndpoint(["0", "/devtools/browser/abc"]) == null && YouTubeBrowserBridge.ParseEndpoint(["9222", "ws://external.example/path"]) == null && YouTubeBrowserBridge.ParseEndpoint(["bad"]) == null);
             Check("Telegram voice playback never enters music selection", MediaService.ExcludedMediaSource("TelegramDesktop.TDesktop") && MediaService.ExcludedMediaSource("org.telegram.desktop") && !MediaService.ExcludedMediaSource("ru.yandex.desktop.music") && !MediaService.ExcludedMediaSource("chrome"));
