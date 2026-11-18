@@ -16,6 +16,12 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("playing music wins over playing background video", MediaService.SessionPriority(true, false) > MediaService.SessionPriority(true, true));
+            Check("playing video wins over paused music", MediaService.SessionPriority(true, true) > MediaService.SessionPriority(false, false));
+            Check("browser video metadata classified without fetching browsing history", MediaService.VideoSource("chrome", "Channel", null) && MediaService.VideoSource("browser", "Channel", Windows.Media.MediaPlaybackType.Video));
+            Check("browser music stays music when declared by Windows", !MediaService.VideoSource("chrome", "Artist", Windows.Media.MediaPlaybackType.Music));
+            var videoPresence = DiscordPresenceService.CreatePresence(true, true, true, "Video title", "Channel", 5, 60, DateTime.UtcNow, video: true);
+            Check("Discord video presence shows Watching title channel and timer", videoPresence.Type == DiscordRPC.ActivityType.Watching && videoPresence.Details == "Video title" && videoPresence.State == "Channel" && videoPresence.Timestamps != null);
             var intro = new TrackIntroduction();
             Check("new track introduction lasts its first second", intro.Begin("A", 1000) && intro.IsActive("A", 1999) && !intro.IsActive("A", 2000));
             Check("metadata refresh does not restart track introduction", !intro.Begin("A", 2100) && !intro.IsActive("A", 2100));
@@ -97,7 +103,9 @@ internal static class SelfTests
             Check("native CPU sample is bounded", monitor.Cpu is >= 0 and <= 100);
             var audio = new AudioService();
             Check("read Windows audio endpoint without changing volume", audio.Refresh() && audio.Volume is >= 0 and <= 1, audio.Error);
-            var media = new MediaService(); await media.InitializeAsync();
+            using var media = new MediaService(); await media.InitializeAsync();
+            if (args.Contains("--media-current"))
+                Check("current media snapshot", true, $"available={media.Available}, playing={media.Playing}, video={media.IsVideo}, title={media.Title}, artist={media.Artist}, source={media.Source}, sessions={media.Sessions.Count}");
             Check("Windows media API initializes", media.Error == null, media.Error ?? $"sessions={media.Sessions.Count}");
             Check("web links reject executable schemes", ShelfItem.IsWebLink("https://example.com/path?q=1") && !ShelfItem.IsWebLink("javascript:alert(1)") && !ShelfItem.IsWebLink("file:///C:/test.exe"));
             Check("content determines shell height", MainWindow.PageHeight(0, false) < MainWindow.PageHeight(0, true) && MainWindow.PageHeight(1, false) != MainWindow.PageHeight(5, false));

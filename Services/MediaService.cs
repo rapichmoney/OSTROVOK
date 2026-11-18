@@ -27,18 +27,27 @@ public sealed partial class MediaService : IDisposable
     public string Artist { get; private set; } = "Откройте музыку или видео в плеере";
     public string Source { get; private set; } = "";
     public string Album { get; private set; } = "";
+    public bool IsVideo { get; private set; }
+    public static bool VideoSource(string source, string artist, Windows.Media.MediaPlaybackType? type) =>
+        type == Windows.Media.MediaPlaybackType.Video || artist.Contains("YouTube", StringComparison.OrdinalIgnoreCase) || source.Contains("youtube", StringComparison.OrdinalIgnoreCase) ||
+        (type != Windows.Media.MediaPlaybackType.Music && new[] { "chrome", "msedge", "firefox", "browser" }.Any(x => source.Contains(x, StringComparison.OrdinalIgnoreCase)));
+    public static int SessionPriority(bool playing, bool video) => playing ? video ? 2 : 3 : 0;
     public string ArtworkUrl => Source == "ru.yandex.desktop.music" && lastNativeState is { } native && native.TrackId == nativeTrackId && native.Title == Title ? native.ArtworkUrl : "";
     public string TrackPageUrl => Source == "ru.yandex.desktop.music" && nativeTrackId.Length > 0 && nativeTrackId.All(char.IsAsciiDigit) ? "https://music.yandex.ru/track/" + nativeTrackId : "";
     public bool Playing { get; private set; }
     public bool Available => session != null || nativeAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)
     {
-        if (session != null && Source != "ru.yandex.desktop.music") return false;
+        if (session != null && Source != "ru.yandex.desktop.music" && (!IsVideo || !state.Playing && Playing)) return false;
         if (string.IsNullOrWhiteSpace(state.Title) || state.Duration <= 0) return false;
-        bool changed = !Available || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist || Playing != state.Playing;
-        bool trackChanged = nativeTrackId != state.TrackId;
+        bool sourceChanged = Source != "ru.yandex.desktop.music";
+        bool changed = sourceChanged || !Available || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist || Playing != state.Playing;
+        bool trackChanged = sourceChanged || nativeTrackId != state.TrackId;
+        if (sourceChanged) requestedArtwork = "";
         if (trackChanged) { ArtworkReady = string.IsNullOrEmpty(state.ArtworkUrl); if (ArtworkReady) Artwork = null; Album = ""; }
         lastNativeState = state; nativeMetadataAt = Environment.TickCount64;
+        if (IsVideo) DisconnectSession();
+        IsVideo = false;
         nativeAvailable = session == null; nativeUpdatedAt = Environment.TickCount64; nativeTrackId = state.TrackId;
         Source = "ru.yandex.desktop.music"; Title = state.Title; Artist = state.Artist; Duration = state.Duration; Playing = state.Playing;
         CanPlay = CanSeek = true; CanNext = CanPrevious = true;
@@ -82,7 +91,26 @@ public sealed partial class MediaService : IDisposable
         try
         {
             Sessions = manager.GetSessions().ToArray();
-            var next = Sessions.FirstOrDefault(x => x.SourceAppUserModelId == SelectedSource) ?? manager.GetCurrentSession() ?? Sessions.FirstOrDefault(x => x.SourceAppUserModelId == "ru.yandex.desktop.music") ?? Sessions.FirstOrDefault();
+            var candidates = new List<(GlobalSystemMediaTransportControlsSession Session, int Priority)>();
+            foreach (var candidate in Sessions)
+            {
+                try
+                {
+                    var metadata = await candidate.TryGetMediaPropertiesAsync();
+                    bool video = VideoSource(candidate.SourceAppUserModelId, metadata.Artist, metadata.PlaybackType);
+                    candidates.Add((candidate, SessionPriority(candidate.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing, video)));
+                }
+                catch (Exception) { /* One closing browser tab must not hide the other players. */ }
+            }
+            var next = candidates.OrderByDescending(x => x.Priority)
+                .ThenByDescending(x => x.Session.SourceAppUserModelId == SelectedSource)
+                .ThenByDescending(x => ReferenceEquals(x.Session, manager.GetCurrentSession()))
+                .Select(x => x.Session).FirstOrDefault();
+            if (Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000 &&
+                !candidates.Any(x => x.Priority == 3))
+            {
+                DisconnectSession(); nativeAvailable = true; IsVideo = false; return;
+            }
             if (next == null)
             {
                 if ((nativeAvailable || externalPositionAvailable && Source == "ru.yandex.desktop.music") && Environment.TickCount64 - nativeUpdatedAt < 8000)
@@ -92,7 +120,7 @@ public sealed partial class MediaService : IDisposable
                 nativeAvailable = false;
                 DisconnectSession();
                 session = null; Title = "Ничего не играет"; Artist = "Откройте музыку или видео в плеере";
-                Artwork = null; Source = ""; Playing = false; CanPlay = CanNext = CanPrevious = CanSeek = false;
+                Artwork = null; Source = ""; Playing = false; IsVideo = false; CanPlay = CanNext = CanPrevious = CanSeek = false;
                 Duration = 0; Album = ""; clock.Sample(0, 0, false, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); lastTrack = ""; Updated?.Invoke(); return;
             }
             if (!ReferenceEquals(session, next))
@@ -109,6 +137,7 @@ public sealed partial class MediaService : IDisposable
             Artist = native?.Artist ?? (string.IsNullOrWhiteSpace(properties.Artist) ? properties.AlbumArtist : properties.Artist);
             Album = properties.AlbumTitle;
             Source = next.SourceAppUserModelId;
+            IsVideo = VideoSource(Source, Artist, properties.PlaybackType);
             Playing = native?.Playing ?? playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             CanPlay = playback.Controls.IsPlayPauseToggleEnabled;
             CanNext = playback.Controls.IsNextEnabled;

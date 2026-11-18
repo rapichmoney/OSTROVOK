@@ -38,6 +38,11 @@ public partial class MainWindow
     private void RefreshTrackLyrics(bool force = false)
     {
         if (App.VerificationMode && !force) return;
+        if (media.IsVideo)
+        {
+            requestedLyricsKey = ""; ++lyricsRevision; lyricCancellation?.Cancel();
+            ShowLyrics(null, "Видео · " + media.Artist); return;
+        }
         if (!settings.LyricsEnabled || !media.Available)
         {
             requestedLyricsKey = ""; ++lyricsRevision; lyricCancellation?.Cancel();

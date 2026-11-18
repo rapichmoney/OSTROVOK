@@ -17,7 +17,7 @@ public sealed class DiscordPresenceService : IDisposable
         foreach (var rune in text.EnumerateRunes()) { if (bytes + rune.Utf8SequenceLength > 120) break; result.Append(rune.ToString()); bytes += rune.Utf8SequenceLength; }
         return result.ToString();
     }
-    public static RichPresence CreatePresence(bool showTrack, bool available, bool playing, string title, string artist, double position, double duration, DateTime now, string artworkUrl = "", string trackUrl = "")
+    public static RichPresence CreatePresence(bool showTrack, bool available, bool playing, string title, string artist, double position, double duration, DateTime now, string artworkUrl = "", string trackUrl = "", bool video = false)
     {
         var presence = new RichPresence { Details = "OSTROVOK", State = "Остров в режиме покоя", Type = ActivityType.Playing };
         presence.Assets = new Assets { LargeImageKey = "ostrovok", LargeImageText = "OSTROVOK · музыка и уведомления на Windows" };
@@ -26,7 +26,8 @@ public sealed class DiscordPresenceService : IDisposable
         if (available && showTrack)
         {
             presence.Details = Limit(title); presence.State = Limit((playing ? "" : "На паузе · ") + artist);
-            presence.Type = ActivityType.Listening;
+            presence.Type = video ? ActivityType.Watching : ActivityType.Listening;
+            if (video && string.IsNullOrWhiteSpace(artist)) presence.State = playing ? "Видео" : "Видео на паузе";
             bool validCover = Uri.TryCreate(artworkUrl, UriKind.Absolute, out var cover) && cover.Scheme == "https" && cover.Host.EndsWith(".yandex.net", StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(cover.Query) && string.IsNullOrEmpty(cover.UserInfo);
             presence.Assets = new Assets
             {
@@ -58,7 +59,7 @@ public sealed class DiscordPresenceService : IDisposable
             }
             if (Environment.TickCount64 - updatedAt < 5000) return;
             updatedAt = Environment.TickCount64;
-            client.SetPresence(CreatePresence(showTrack, media.Available, media.Playing, media.Title, media.Artist, media.Position, media.Duration, DateTime.UtcNow, media.ArtworkUrl, media.TrackPageUrl));
+            client.SetPresence(CreatePresence(showTrack, media.Available, media.Playing, media.Title, media.Artist, media.Position, media.Duration, DateTime.UtcNow, media.ArtworkUrl, media.TrackPageUrl, media.IsVideo));
         }
         catch (Exception) { Dispose(); Status = "Не удалось подключить RPC. Проверьте Application ID и Discord."; }
     }

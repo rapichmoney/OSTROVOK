@@ -12,14 +12,14 @@ public partial class MainWindow
 
     private async Task RefreshYandexPlaybackAsync()
     {
-        if (closing || pollingYandex || (!IsYandexSelected && media.Source.Length != 0) || !settings.YandexLyricsEnabled || writingYandexVolume || seeking || ratingYandex) return;
+        if (closing || pollingYandex || (!IsYandexSelected && !media.IsVideo && media.Source.Length != 0) || !settings.YandexLyricsEnabled || writingYandexVolume || seeking || ratingYandex) return;
         pollingYandex = true;
         long revision = yandexCommandRevision;
         try
         {
             yandexLyrics.PrefetchEnabled = settings.LyricsEnabled && settings.YandexLyricsEnabled;
             var state = await yandexLyrics.PlaybackAsync();
-            if (closing || (!IsYandexSelected && media.Source.Length != 0) || seeking || writingYandexVolume || ratingYandex || revision != yandexCommandRevision) return;
+            if (closing || (!IsYandexSelected && !media.IsVideo && media.Source.Length != 0) || seeking || writingYandexVolume || ratingYandex || revision != yandexCommandRevision) return;
             if (state == null && Environment.TickCount64 - yandexStateAt < 8000) return;
             yandexPlayback = state;
             if (state != null)
@@ -27,7 +27,7 @@ public partial class MainWindow
                 yandexStateAt = Environment.TickCount64;
                 if (media.UpdateNativePlayback(state)) UpdateMedia();
             }
-            media.UpdateExternalPosition(state?.Position, isPlaying: state?.Playing);
+            if (IsYandexSelected) media.UpdateExternalPosition(state?.Position, isPlaying: state?.Playing);
             if (state?.Volume > .001) lastYandexVolume = state.Volume;
             Timeline.IsEnabled = media.Duration > 0 && CanSeekSelectedPlayer;
             RefreshVolume(); UpdateYandexRating();
