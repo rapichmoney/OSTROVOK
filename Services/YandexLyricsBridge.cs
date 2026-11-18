@@ -159,9 +159,9 @@ public sealed class YandexLyricsBridge
                 return root.GetProperty("result").Clone();
             }
         }
-        public async Task<JsonElement> EvaluateAsync(string expression, CancellationToken cancellation, string? sessionId = null)
+        public async Task<JsonElement> EvaluateAsync(string expression, CancellationToken cancellation, string? sessionId = null, bool userGesture = false)
         {
-            var reply = await CallAsync("Runtime.evaluate", new { expression, returnByValue = true, awaitPromise = true }, cancellation, sessionId);
+            var reply = await CallAsync("Runtime.evaluate", new { expression, returnByValue = true, awaitPromise = true, userGesture }, cancellation, sessionId);
             if (reply.TryGetProperty("exceptionDetails", out _)) throw new InvalidOperationException("Yandex adapter is not available for this version");
             return reply.GetProperty("result").TryGetProperty("value", out var value) ? value.Clone() : default;
         }

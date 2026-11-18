@@ -16,6 +16,15 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            var approvalPolicy = new BrowserConnectionPolicy();
+            Check("YouTube does not ask for browser access on startup", !approvalPolicy.TryStart());
+            approvalPolicy.Request();
+            Check("explicit YouTube connection grants a single attempt", approvalPolicy.TryStart() && !approvalPolicy.TryStart());
+            Check("ten thousand refreshes after refusal or failure cannot prompt again", Enumerable.Range(0, 10000).All(_ => !approvalPolicy.TryStart()));
+            approvalPolicy.Request(); approvalPolicy.Request();
+            Check("repeated connect clicks do not queue multiple authorizations", approvalPolicy.TryStart() && !approvalPolicy.TryStart());
+            approvalPolicy.Request(); approvalPolicy.Disable();
+            Check("disconnect cancels pending browser authorization", !approvalPolicy.TryStart());
             Check("YouTube playback command loads its bundled adapter", YouTubeBrowserBridge.ToggleExpression("abcdefghijk").Contains("video.pause()"));
             bool rejectedVideoId = false;
             try { YouTubeBrowserBridge.ToggleExpression("invalid-video-id"); } catch (ArgumentException) { rejectedVideoId = true; }

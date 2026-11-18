@@ -29,6 +29,15 @@ public partial class MainWindow
             item.Click += async (_, _) => { media.SelectedSource = selected; await media.RefreshAsync(); };
             menu.Items.Add(item);
         }
+        var youtube = Services.YouTubeBrowserBridge.Shared;
+        var youtubeItem = new MenuItem { Header = youtube.IsConnected ? "Отключить YouTube" : youtube.IsConnecting ? "Отменить подключение YouTube" : "Подключить YouTube" };
+        youtubeItem.Click += async (_, _) =>
+        {
+            if (youtube.IsConnected || youtube.IsConnecting) await youtube.DisconnectAsync();
+            else youtube.RequestConnection();
+            await media.RefreshAsync(); Status.Text = youtube.Status;
+        };
+        menu.Items.Add(youtubeItem);
         AddMenuAction(menu, "Настройки звука Windows", () => OpenSound(this, new RoutedEventArgs()));
         AddMenuAction(menu, "Настройки музыки", () => OpenPreferences(5));
         menu.PlacementTarget = PlayerOptionsButton; menu.IsOpen = true;

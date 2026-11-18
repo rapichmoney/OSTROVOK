@@ -248,7 +248,7 @@ public sealed partial class MediaService : IDisposable
         if (Source == "youtube.bridge")
         {
             if (command != "toggle") return false;
-            bool success = await YouTubeBrowserBridge.Shared.ToggleAsync(youtubeId);
+            bool success = await YouTubeBrowserBridge.Shared.SetPlayingAsync(youtubeId, !Playing);
             if (success) await RefreshAsync();
             return success;
         }

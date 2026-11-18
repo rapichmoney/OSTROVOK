@@ -60,6 +60,13 @@ public sealed class DiscordPresenceService : IDisposable
                 client.OnError += (sender, _) => { if (ReferenceEquals(client, sender)) Status = "Discord отклонил обновление статуса"; };
                 Status = "Подключение к Discord…"; client.Initialize(); updatedAt = 0;
             }
+            if (showTrack && (!media.Available || !media.Playing))
+            {
+                if (LastPresence != null || client.CurrentPresence != null) client.ClearPresence();
+                LastPresence = null; updatedAt = 0;
+                Status = media.Available ? "Подключено к Discord · воспроизведение на паузе" : "Подключено к Discord · нет воспроизведения";
+                return;
+            }
             if (Environment.TickCount64 - updatedAt < 5000) return;
             updatedAt = Environment.TickCount64;
             var presence = CreatePresence(showTrack, media.Available, media.Playing, media.Title, media.Artist, media.Position, media.Duration, DateTime.UtcNow, media.ArtworkUrl, media.TrackPageUrl, media.IsVideo);
