@@ -16,6 +16,14 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("YouTube fallback extracts only the displayed video title", YouTubeWindowProbe.VideoTitle("Example - YouTube — Яндекс Браузер") == "Example" && YouTubeWindowProbe.VideoTitle("Unrelated browser window") == null);
+            if (args.Contains("--youtube-window-current"))
+            {
+                var probe = new YouTubeWindowProbe();
+                var video = await probe.ReadAsync();
+                if (video == null) { await Task.Delay(600); video = await probe.ReadAsync(); }
+                Check("live YouTube fallback detects playing video", video?.Playing == true, video?.Title ?? probe.Status);
+            }
             Check("playing music wins over playing background video", MediaService.SessionPriority(true, false) > MediaService.SessionPriority(true, true));
             Check("playing video wins over paused music", MediaService.SessionPriority(true, true) > MediaService.SessionPriority(false, false));
             Check("browser video metadata classified without fetching browsing history", MediaService.VideoSource("chrome", "Channel", null) && MediaService.VideoSource("browser", "Channel", Windows.Media.MediaPlaybackType.Video));

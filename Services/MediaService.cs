@@ -15,6 +15,8 @@ public sealed partial class MediaService : IDisposable
     private readonly SynchronizedPlaybackClock externalClock = new();
     private bool externalPositionAvailable;
     private bool nativeAvailable;
+    private bool windowVideoAvailable;
+    private readonly YouTubeWindowProbe youTube = new();
     private long nativeUpdatedAt;
     private string nativeTrackId = "";
     private YandexLyricsBridge.PlaybackState? lastNativeState;
@@ -35,7 +37,7 @@ public sealed partial class MediaService : IDisposable
     public string ArtworkUrl => Source == "ru.yandex.desktop.music" && lastNativeState is { } native && native.TrackId == nativeTrackId && native.Title == Title ? native.ArtworkUrl : "";
     public string TrackPageUrl => Source == "ru.yandex.desktop.music" && nativeTrackId.Length > 0 && nativeTrackId.All(char.IsAsciiDigit) ? "https://music.yandex.ru/track/" + nativeTrackId : "";
     public bool Playing { get; private set; }
-    public bool Available => session != null || nativeAvailable;
+    public bool Available => session != null || nativeAvailable || windowVideoAvailable;
     public bool UpdateNativePlayback(YandexLyricsBridge.PlaybackState state)
     {
         if (session != null && Source != "ru.yandex.desktop.music" && (!IsVideo || !state.Playing && Playing)) return false;
@@ -47,6 +49,7 @@ public sealed partial class MediaService : IDisposable
         if (trackChanged) { ArtworkReady = string.IsNullOrEmpty(state.ArtworkUrl); if (ArtworkReady) Artwork = null; Album = ""; }
         lastNativeState = state; nativeMetadataAt = Environment.TickCount64;
         if (IsVideo) DisconnectSession();
+        windowVideoAvailable = false;
         IsVideo = false;
         nativeAvailable = session == null; nativeUpdatedAt = Environment.TickCount64; nativeTrackId = state.TrackId;
         Source = "ru.yandex.desktop.music"; Title = state.Title; Artist = state.Artist; Duration = state.Duration; Playing = state.Playing;
@@ -106,6 +109,21 @@ public sealed partial class MediaService : IDisposable
                 .ThenByDescending(x => x.Session.SourceAppUserModelId == SelectedSource)
                 .ThenByDescending(x => ReferenceEquals(x.Session, manager.GetCurrentSession()))
                 .Select(x => x.Session).FirstOrDefault();
+            bool nativeMusicPlaying = Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000;
+            if (!nativeMusicPlaying && !candidates.Any(x => x.Priority > 0))
+            {
+                var video = await youTube.ReadAsync();
+                if (video != null)
+                {
+                    DisconnectSession(); nativeAvailable = false; windowVideoAvailable = true;
+                    Source = "youtube.window"; IsVideo = true; Title = video.Title; Artist = "YouTube"; Album = "";
+                    Playing = video.Playing; Artwork = null; ArtworkReady = true; Duration = 0;
+                    CanPlay = CanNext = CanPrevious = CanSeek = false;
+                    clock.Sample(0, 0, false, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+                    Updated?.Invoke(); return;
+                }
+            }
+            windowVideoAvailable = false;
             if (Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000 &&
                 !candidates.Any(x => x.Priority == 3))
             {
