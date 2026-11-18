@@ -142,9 +142,12 @@ public sealed class YandexLyricsBridge
         private readonly ClientWebSocket socket = new();
         private int sequence;
         public Task OpenAsync(Uri uri, CancellationToken cancellation) { socket.Options.Proxy = null; return socket.ConnectAsync(uri, cancellation); }
-        public async Task<JsonElement> CallAsync(string method, object parameters, CancellationToken cancellation)
+        public async Task<JsonElement> CallAsync(string method, object parameters, CancellationToken cancellation, string? sessionId = null)
         {
-            int id = ++sequence; var payload = JsonSerializer.SerializeToUtf8Bytes(new { id, method, @params = parameters });
+            int id = ++sequence;
+            var request = new Dictionary<string, object> { ["id"] = id, ["method"] = method, ["params"] = parameters };
+            if (sessionId != null) request["sessionId"] = sessionId;
+            var payload = JsonSerializer.SerializeToUtf8Bytes(request);
             await socket.SendAsync(payload, WebSocketMessageType.Text, true, cancellation);
             while (true)
             {
@@ -156,9 +159,9 @@ public sealed class YandexLyricsBridge
                 return root.GetProperty("result").Clone();
             }
         }
-        public async Task<JsonElement> EvaluateAsync(string expression, CancellationToken cancellation)
+        public async Task<JsonElement> EvaluateAsync(string expression, CancellationToken cancellation, string? sessionId = null)
         {
-            var reply = await CallAsync("Runtime.evaluate", new { expression, returnByValue = true, awaitPromise = true }, cancellation);
+            var reply = await CallAsync("Runtime.evaluate", new { expression, returnByValue = true, awaitPromise = true }, cancellation, sessionId);
             if (reply.TryGetProperty("exceptionDetails", out _)) throw new InvalidOperationException("Yandex adapter is not available for this version");
             return reply.GetProperty("result").TryGetProperty("value", out var value) ? value.Clone() : default;
         }

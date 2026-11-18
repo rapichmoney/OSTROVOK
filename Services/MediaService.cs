@@ -112,7 +112,7 @@ public sealed partial class MediaService : IDisposable
                 .ThenByDescending(x => ReferenceEquals(x.Session, manager.GetCurrentSession()))
                 .Select(x => x.Session).FirstOrDefault();
             bool nativeMusicPlaying = Source == "ru.yandex.desktop.music" && lastNativeState is { Playing: true } && Environment.TickCount64 - nativeUpdatedAt < 8000;
-            var browserVideo = await YouTubeBrowserBridge.Shared.ReadAsync();
+            var browserVideo = App.SelfTestMode || App.VerificationMode ? null : await YouTubeBrowserBridge.Shared.ReadAsync();
             if (!nativeMusicPlaying && !candidates.Any(x => x.Priority == 3) && browserVideo != null && (browserVideo.Playing || !candidates.Any(x => x.Priority > 0)))
             {
                 bool changed = Source != "youtube.bridge" || youtubeId != browserVideo.Id;

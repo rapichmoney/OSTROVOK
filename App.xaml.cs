@@ -7,6 +7,7 @@ public partial class App : System.Windows.Application
     private EventWaitHandle? showSignal;
     private RegisteredWaitHandle? wait;
     internal static bool VerificationMode { get; private set; }
+    internal static bool SelfTestMode { get; private set; }
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -19,6 +20,7 @@ public partial class App : System.Windows.Application
         }
         if (e.Args.Contains("--self-test"))
         {
+            SelfTestMode = true;
             Shutdown(await SelfTests.RunAsync(e.Args)); return;
         }
         VerificationMode = e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");

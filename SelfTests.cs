@@ -16,6 +16,8 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("approval endpoint uses discovered loopback port", YouTubeBrowserBridge.ParseEndpoint(["9222", "/devtools/browser/abc-123"])?.AbsoluteUri == "ws://127.0.0.1:9222/devtools/browser/abc-123");
+            Check("approval discovery rejects malformed or external endpoints", YouTubeBrowserBridge.ParseEndpoint(["0", "/devtools/browser/abc"]) == null && YouTubeBrowserBridge.ParseEndpoint(["9222", "ws://external.example/path"]) == null && YouTubeBrowserBridge.ParseEndpoint(["bad"]) == null);
             Check("Telegram voice playback never enters music selection", MediaService.ExcludedMediaSource("TelegramDesktop.TDesktop") && MediaService.ExcludedMediaSource("org.telegram.desktop") && !MediaService.ExcludedMediaSource("ru.yandex.desktop.music") && !MediaService.ExcludedMediaSource("chrome"));
             Check("YouTube browser adapter ignores unrelated pages", YouTubeBrowserBridge.IsYouTubePage("https://www.youtube.com/watch?v=abcdefghijk") && !YouTubeBrowserBridge.IsYouTubePage("https://youtube.com.example.org/watch?v=abcdefghijk") && !YouTubeBrowserBridge.IsYouTubePage("https://mail.example.com/"));
             using var youtubeFixture = JsonDocument.Parse("""{"id":"abcdefghijk","title":"Example video","artist":"Example channel","playing":true,"position":20,"duration":300}""");

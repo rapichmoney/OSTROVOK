@@ -10,6 +10,7 @@ public sealed class DiscordPresenceService : IDisposable
     private string applicationId = "";
     private long updatedAt;
     public string Status { get; private set; } = "Выключено";
+    internal RichPresence? LastPresence { get; private set; }
     public static bool ValidApplicationId(string id) => id.Length is >= 17 and <= 20 && id.All(char.IsAsciiDigit);
     private static string Limit(string text)
     {
@@ -61,7 +62,8 @@ public sealed class DiscordPresenceService : IDisposable
             }
             if (Environment.TickCount64 - updatedAt < 5000) return;
             updatedAt = Environment.TickCount64;
-            client.SetPresence(CreatePresence(showTrack, media.Available, media.Playing, media.Title, media.Artist, media.Position, media.Duration, DateTime.UtcNow, media.ArtworkUrl, media.TrackPageUrl, media.IsVideo));
+            var presence = CreatePresence(showTrack, media.Available, media.Playing, media.Title, media.Artist, media.Position, media.Duration, DateTime.UtcNow, media.ArtworkUrl, media.TrackPageUrl, media.IsVideo);
+            client.SetPresence(presence); LastPresence = presence;
         }
         catch (Exception) { Dispose(); Status = "Не удалось подключить RPC. Проверьте Application ID и Discord."; }
     }

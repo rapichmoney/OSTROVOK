@@ -7,5 +7,14 @@ public partial class MainWindow
     private void UpdateDiscordPresence()
     {
         if (!App.VerificationMode) discordPresence.Update(settings.DiscordPresenceEnabled, settings.DiscordApplicationId, settings.DiscordShowTrack, media);
+        var arguments = Environment.GetCommandLineArgs();
+        string? report = arguments.SkipWhile(x => x != "--media-diagnostics").Skip(1).FirstOrDefault();
+        if (report != null)
+        {
+            var bridge = Services.YouTubeBrowserBridge.Shared;
+            var presence = discordPresence.LastPresence;
+            try { File.WriteAllText(report, System.Text.Json.JsonSerializer.Serialize(new { updated = DateTimeOffset.UtcNow, media.Source, media.Title, media.Artist, media.Playing, media.IsVideo, media.ArtworkReady, browserStatus = bridge.Status, browserVideo = bridge.LastVideo, rpcStatus = discordPresence.Status, rpcType = presence?.Type.ToString(), rpcTitle = presence?.Details, rpcArtist = presence?.State })); }
+            catch (IOException) { }
+        }
     }
 }
