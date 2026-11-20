@@ -39,7 +39,16 @@ jobs:
           $exe = Join-Path $PWD 'artifacts/portable/DesktopIsland.exe'
           $process = Start-Process -FilePath $exe -ArgumentList "--self-test --report `"$reportPath`"" -WindowStyle Hidden -PassThru
           if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'Self-test timed out' }
-          if ($process.ExitCode -ne 0) { throw 'Self-test failed' }
+          if (Test-Path -LiteralPath $reportPath) {
+            $result = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+            foreach ($check in $result.checks) {
+              if (-not $check.pass) {
+                $message = ($check.name + ': ' + $check.detail).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+                Write-Output "::error::$message"
+              }
+            }
+          }
+          if ($process.ExitCode -ne 0) { throw "Self-test failed with exit code $($process.ExitCode)" }
           $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
           if ($report.failures -ne 0 -or $report.checks.Count -eq 0) { throw 'Invalid self-test report' }
           Write-Output "Passed $($report.checks.Count) application checks"
