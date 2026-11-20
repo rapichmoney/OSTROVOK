@@ -13,7 +13,7 @@ public partial class MainWindow
         {
             var bridge = Services.YouTubeBrowserBridge.Shared;
             var presence = discordPresence.LastPresence;
-            try { File.WriteAllText(report, System.Text.Json.JsonSerializer.Serialize(new { updated = DateTimeOffset.UtcNow, media.Source, media.SourceChangeCount, media.Title, media.Artist, media.Playing, media.IsVideo, media.ArtworkReady, browserStatus = bridge.Status, browserVideo = bridge.LastVideo, browserCommand = bridge.LastCommandStatus, browserConnectionAttempts = bridge.ConnectionAttempts, browserAttachedPages = bridge.AttachedPages, rpcStatus = discordPresence.Status, rpcType = presence?.Type.ToString(), rpcTitle = presence?.Details, rpcArtist = presence?.State })); }
+            try { File.WriteAllText(report, System.Text.Json.JsonSerializer.Serialize(new { updated = DateTimeOffset.UtcNow, media.Source, media.SourceChangeCount, media.Title, media.Artist, media.Playing, media.IsVideo, media.ArtworkReady, doubleCopyShortcutActive = doubleCopyHook.IsActive, browserStatus = bridge.Status, browserVideo = bridge.LastVideo, browserCommand = bridge.LastCommandStatus, browserConnectionAttempts = bridge.ConnectionAttempts, browserAttachedPages = bridge.AttachedPages, rpcStatus = discordPresence.Status, rpcType = presence?.Type.ToString(), rpcTitle = presence?.Details, rpcArtist = presence?.State })); }
             catch (IOException) { }
         }
     }

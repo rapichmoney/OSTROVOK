@@ -471,12 +471,7 @@ public partial class MainWindow : Window
                     if (!System.Windows.Clipboard.ContainsText()) return;
                     var text = System.Windows.Clipboard.GetText();
                     if (text.Length == 0 || text.Length > 65536 || text == lastClipboard) return;
-                    lastClipboard = text;
-                    var duplicate = clipboard.FirstOrDefault(x => x.Text == text); if (duplicate != null) clipboard.Remove(duplicate);
-                    var entry = new ClipboardEntry { Text = text };
-                    clipboard.Insert(0, entry); while (clipboard.Count > 50) clipboard.RemoveAt(clipboard.Count - 1);
-                    HandleCopiedText(entry);
-                    ClipboardHint.Text = $"Записей: {clipboard.Count}. Двойной щелчок — скопировать."; return;
+                    HandleCopiedText(AddClipboardText(text)); return;
                 }
                 catch (ExternalException) { await Task.Delay(80); }
             }
@@ -492,6 +487,11 @@ public partial class MainWindow : Window
             if (!clipboardRegistered) { settings.ClipboardEnabled = false; WatchClipboard.IsChecked = false; AddActivity("Буфер обмена", "Windows не разрешила наблюдение за буфером."); }
         }
         else if (!settings.ClipboardEnabled && clipboardRegistered) { WindowInterop.RemoveClipboardFormatListener(handle); clipboardRegistered = false; }
+        if (settings.ClipboardEnabled)
+        {
+            if (!doubleCopyHook.Start()) AddActivity("Перевод", "Не удалось включить двойное Ctrl+C.");
+        }
+        else { doubleCopyHook.Stop(); doubleCopyPending = false; doubleCopyRevision++; }
         ClipboardHint.Text = settings.ClipboardEnabled ? "Сбор включён. История хранится только до закрытия приложения." : "Сбор выключен. Включите его в настройках.";
     }
     private void CopyClipboardItem(object sender, RoutedEventArgs e)
@@ -500,7 +500,7 @@ public partial class MainWindow : Window
         try { lastClipboard = item.Text; System.Windows.Clipboard.SetText(item.Text); ShowClipboardNotice(item, "Текст скопирован", item.Text, 5); Status.Text = "Текст скопирован. Нажмите Ctrl + V в нужном окне."; }
         catch (ExternalException) { Status.Text = "Буфер занят другим приложением. Повторите копирование."; }
     }
-    private void ClearClipboard(object sender, RoutedEventArgs e) { StopClipboardTranslation(); translationGate.Reset(); DismissClipboardNotice(this, EventArgs.Empty); noticeEntry = null; clipboard.Clear(); lastClipboard = ""; ClipboardHint.Text = "История приложения очищена. Системный буфер не изменён."; }
+    private void ClearClipboard(object sender, RoutedEventArgs e) { StopClipboardTranslation(); doubleCopyPending = false; doubleCopyRevision++; translationGate.Reset(); DismissClipboardNotice(this, EventArgs.Empty); noticeEntry = null; clipboard.Clear(); lastClipboard = ""; ClipboardHint.Text = "История приложения очищена. Системный буфер не изменён."; }
     private void ClipboardSettingChanged(object sender, RoutedEventArgs e)
     {
         settings.ClipboardEnabled = WatchClipboard.IsChecked == true; UpdateClipboardListener();
@@ -585,6 +585,7 @@ public partial class MainWindow : Window
         StopPageTransition();
         StopCompactTransition();
         StopClipboardTranslation(); clipboardNoticeTimer.Stop();
+        doubleCopyHook.Dispose();
         telegramNotifications.Dispose(); telegramNoticeTimer.Stop(); telegramQueue.Clear();
         media.Dispose(); discordPresence.Dispose();
         preferences?.Close();

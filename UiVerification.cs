@@ -427,10 +427,10 @@ public partial class MainWindow
             var guardedReply = new ClipboardEntry { Text = "Русский ответ", Translation = "English reply" };
             noticeEntry = guardedReply; verificationClipboardText = "Другой текст";
             translationGate.Complete("ru", "en");
-            await CopyReverseTranslationAsync(guardedReply, System.Threading.CancellationToken.None);
+            await CopyTranslationResultAsync(guardedReply, System.Threading.CancellationToken.None);
             Check("reverse reply never overwrites a newer clipboard copy", verificationClipboardText == "Другой текст" && translationGate.EnglishReplyArmed);
             verificationClipboardText = guardedReply.Text;
-            await CopyReverseTranslationAsync(guardedReply, System.Threading.CancellationToken.None);
+            await CopyTranslationResultAsync(guardedReply, System.Threading.CancellationToken.None);
             Check("reverse reply writes English once and keeps source in history", verificationClipboardText == "English reply" && lastClipboard == "English reply" && !translationGate.EnglishReplyArmed && guardedReply.Text == "Русский ответ");
             DismissClipboardNotice(this, EventArgs.Empty); await AwaitShellAsync();
             string copiedFixture = Path.Combine(output, "copied-file-fixture.txt"); File.WriteAllText(copiedFixture, "Synthetic clipboard file test");

@@ -11,6 +11,9 @@ public partial class MainWindow
 {
     private readonly TranslationService translator = new();
     private readonly ClipboardTranslationGate translationGate = new();
+    private readonly DoubleCopyHook doubleCopyHook = new();
+    private bool doubleCopyPending;
+    private int doubleCopyRevision;
     private string? verificationClipboardText;
     private readonly DispatcherTimer clipboardNoticeTimer = new();
     private CancellationTokenSource? translationCancellation;
@@ -20,12 +23,63 @@ public partial class MainWindow
     private int? clipboardReturnTab;
     private bool navigatingForClipboard;
 
-    private void InitializeClipboardNotices() => clipboardNoticeTimer.Tick += DismissClipboardNotice;
+    private void InitializeClipboardNotices()
+    {
+        clipboardNoticeTimer.Tick += DismissClipboardNotice;
+        doubleCopyHook.DoubleCopied += TranslateDoubleCopied;
+    }
+    private ClipboardEntry AddClipboardText(string text)
+    {
+        lastClipboard = text;
+        var duplicate = clipboard.FirstOrDefault(x => x.Text == text);
+        if (duplicate != null) clipboard.Remove(duplicate);
+        var entry = new ClipboardEntry { Text = text };
+        clipboard.Insert(0, entry); while (clipboard.Count > 50) clipboard.RemoveAt(clipboard.Count - 1);
+        ClipboardHint.Text = $"Записей: {clipboard.Count}. Двойной щелчок — скопировать.";
+        return entry;
+    }
+    private async void TranslateDoubleCopied(DoubleCopyRequest request)
+    {
+        if (closing || !settings.ClipboardEnabled) return;
+        int revision = ++doubleCopyRevision;
+        doubleCopyPending = true; StopClipboardTranslation();
+        try
+        {
+            await Task.Delay(160);
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                if (closing || !settings.ClipboardEnabled || revision != doubleCopyRevision || DoubleCopyHook.ForegroundWindow() != request.Window) return;
+                try
+                {
+                    if (DoubleCopyHook.ClipboardSequence() == request.BeforeFirstCopy || System.Windows.Clipboard.ContainsFileDropList() || !System.Windows.Clipboard.ContainsText()) return;
+                    string text = System.Windows.Clipboard.GetText();
+                    if (text.Length == 0 || text.Length > 65536) return;
+                    string? target = DoubleCopyGesture.OppositeLanguage(text);
+                    if (target == null)
+                    {
+                        ShowClipboardNotice(AddClipboardText(text), "Перевод недоступен", text.Length > 4000 ? "Для перевода скопируйте до 4 000 символов." : "Скопируйте русский или английский текст.", 5);
+                        return;
+                    }
+                    StopClipboardTranslation(); translationGate.Reset(); copiedNoticeFiles = [];
+                    var entry = AddClipboardText(text); noticeEntry = entry;
+                    entry.TranslationState = target == "en" ? "Переводим на английский…" : "Переводим на русский…";
+                    ShowClipboardNotice(entry, entry.TranslationState, text, 45, busy: true);
+                    translationCancellation = new CancellationTokenSource();
+                    doubleCopyPending = false;
+                    await TranslateClipboardAsync(entry, translationCancellation.Token, target, copyResult: true);
+                    return;
+                }
+                catch (System.Runtime.InteropServices.ExternalException) { await Task.Delay(80); }
+            }
+        }
+        finally { if (revision == doubleCopyRevision) doubleCopyPending = false; }
+    }
 
     private void HandleCopiedText(ClipboardEntry entry)
     {
         copiedNoticeFiles = [];
         StopClipboardTranslation(); noticeEntry = entry;
+        if (doubleCopyPending) { ShowClipboardNotice(entry, "Текст скопирован", entry.Text, 5); return; }
         string? target = translationGate.SelectTarget(entry.Text, settings.AutoTranslateClipboard);
         bool translate = target != null;
         entry.TranslationState = translate ? target == "en" ? "Переводим на английский…" : "Переводим на русский…" : entry.Text.Length > 4000 && settings.AutoTranslateClipboard ? "Перевод доступен для текста до 4 000 символов" : "";
@@ -37,20 +91,20 @@ public partial class MainWindow
         }
     }
 
-    private async Task TranslateClipboardAsync(ClipboardEntry entry, CancellationToken token, string target = "ru")
+    private async Task TranslateClipboardAsync(ClipboardEntry entry, CancellationToken token, string target = "ru", bool copyResult = false)
     {
         try
         {
             await Task.Delay(400, token);
             if (ReferenceEquals(noticeEntry, entry)) ShowClipboardNotice(entry, target == "en" ? "Переводим на английский…" : "Переводим на русский…", entry.Text, 45, busy: true);
             var result = await translator.TranslateAsync(entry.Text, token, target);
-            if (closing || token.IsCancellationRequested || !settings.AutoTranslateClipboard || !settings.ClipboardEnabled) return;
+            if (closing || token.IsCancellationRequested || (!copyResult && !settings.AutoTranslateClipboard) || !settings.ClipboardEnabled) return;
             if (result.Language == target) { entry.TranslationState = ""; ShowClipboardNotice(entry, "Текст скопирован", entry.Text, 5); return; }
             entry.Translation = result.Text; entry.TranslationState = (target == "en" ? "Перевод на английский · " : "Перевод на русский · ") + result.Provider;
-            if (target == "ru") translationGate.Complete(target, result.Language);
+            if (target == "ru" && !copyResult) translationGate.Complete(target, result.Language);
             if (ReferenceEquals(noticeEntry, entry))
             {
-                if (target == "en") await CopyReverseTranslationAsync(entry, token);
+                if (target == "en" || copyResult) await CopyTranslationResultAsync(entry, token, target);
                 else ShowClipboardNotice(entry, "Перевод на русский", result.Text, 5);
             }
         }
@@ -60,8 +114,9 @@ public partial class MainWindow
         { if (!token.IsCancellationRequested) TranslationFailed(entry); }
     }
 
-    private async Task CopyReverseTranslationAsync(ClipboardEntry entry, CancellationToken token)
+    private async Task CopyTranslationResultAsync(ClipboardEntry entry, CancellationToken token, string target = "en")
     {
+        string language = target == "en" ? "английский" : "русский";
         for (int attempt = 0; attempt < 3; attempt++)
         {
             token.ThrowIfCancellationRequested();
@@ -71,7 +126,7 @@ public partial class MainWindow
                 string current = App.VerificationMode ? verificationClipboardText ?? "" : System.Windows.Clipboard.GetText();
                 if (current != entry.Text)
                 {
-                    ShowClipboardNotice(entry, "Перевод на английский готов", "Буфер уже изменён. Перевод доступен в истории.", 5); return;
+                    ShowClipboardNotice(entry, "Перевод на " + language + " готов", "Буфер уже изменён. Перевод доступен в истории.", 5); return;
                 }
                 string previous = lastClipboard; lastClipboard = entry.Translation;
                 try
@@ -81,12 +136,12 @@ public partial class MainWindow
                 }
                 catch { lastClipboard = previous; throw; }
                 translationGate.Reset();
-                ShowClipboardNotice(entry, "На английский · скопировано", entry.Translation, 5); return;
+                ShowClipboardNotice(entry, "На " + language + " · скопировано", entry.Translation, 5); return;
             }
             catch (System.Runtime.InteropServices.ExternalException) { await Task.Delay(80, token); }
         }
         entry.TranslationState += " · буфер занят";
-        ShowClipboardNotice(entry, "Перевод на английский готов", "Буфер занят. Скопируйте перевод из истории.", 7);
+        ShowClipboardNotice(entry, "Перевод на " + language + " готов", "Буфер занят. Скопируйте перевод из истории.", 7);
     }
 
     private void TranslationFailed(ClipboardEntry entry, string reason = "Перевод недоступен. Исходный текст сохранён.")

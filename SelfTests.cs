@@ -16,6 +16,28 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            var doubleCopy = new DoubleCopyGesture();
+            IntPtr copyWindow = new(123);
+            Check("single copy remains an ordinary copy", doubleCopy.KeyDown(0x43, true, false, 1000, copyWindow, 10) == null);
+            Check("held copy key does not count as a double copy", doubleCopy.KeyDown(0x43, true, false, 1100, copyWindow, 11) == null);
+            doubleCopy.KeyUp(0x43);
+            var doubleRequest = doubleCopy.KeyDown(0x43, true, false, 1200, copyWindow, 11);
+            Check("two copy presses preserve the first clipboard sequence", doubleRequest is { BeforeFirstCopy: 10 } && doubleRequest.Window == copyWindow);
+            doubleCopy.KeyUp(0x43);
+            Check("a third copy does not retrigger the previous pair", doubleCopy.KeyDown(0x43, true, false, 1250, copyWindow, 12) == null);
+            doubleCopy.Reset();
+            doubleCopy.KeyDown(0x43, true, false, 2000, copyWindow, 20); doubleCopy.KeyUp(0x43);
+            Check("copies from different applications are not paired", doubleCopy.KeyDown(0x43, true, false, 2200, new IntPtr(456), 21) == null);
+            doubleCopy.Reset();
+            doubleCopy.KeyDown(0x43, true, false, 3000, copyWindow, 30); doubleCopy.KeyUp(0x43);
+            Check("slow copies are not paired", doubleCopy.KeyDown(0x43, true, false, 3700, copyWindow, 31) == null);
+            doubleCopy.Reset();
+            doubleCopy.KeyDown(0x43, true, false, 4000, copyWindow, 40); doubleCopy.KeyUp(0x43);
+            doubleCopy.KeyDown(0x56, true, false, 4050, copyWindow, 41);
+            Check("copy paste copy is not a translation gesture", doubleCopy.KeyDown(0x43, true, false, 4100, copyWindow, 41) == null);
+            Check("explicit Russian translation needs no prior English activation", DoubleCopyGesture.OppositeLanguage("Проверка перевода") == "en" && DoubleCopyGesture.OppositeLanguage("я") == "en");
+            Check("explicit English copy selects Russian", DoubleCopyGesture.OppositeLanguage("Translation check") == "ru");
+            Check("double copy avoids URLs numbers and oversized requests", DoubleCopyGesture.OppositeLanguage("https://example.com") == null && DoubleCopyGesture.OppositeLanguage("12345") == null && DoubleCopyGesture.OppositeLanguage(new string('я', 4001)) == null);
             var approvalPolicy = new BrowserConnectionPolicy();
             Check("YouTube does not ask for browser access on startup", !approvalPolicy.TryStart());
             approvalPolicy.Request();
