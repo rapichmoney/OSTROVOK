@@ -37,7 +37,7 @@ jobs:
         run: |
           $reportPath = Join-Path $env:RUNNER_TEMP 'core-report.json'
           $exe = Join-Path $PWD 'artifacts/portable/DesktopIsland.exe'
-          $process = Start-Process -FilePath $exe -ArgumentList "--self-test --report `"$reportPath`"" -WindowStyle Hidden -PassThru
+          $process = Start-Process -FilePath $exe -ArgumentList "--self-test --allow-missing-audio --report `"$reportPath`"" -WindowStyle Hidden -PassThru
           if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'Self-test timed out' }
           if (Test-Path -LiteralPath $reportPath) {
             $result = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json

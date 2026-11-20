@@ -181,7 +181,11 @@ internal static class SelfTests
             Check("native memory metrics", monitor.MemoryTotal > 0 && monitor.MemoryUsed <= monitor.MemoryTotal && monitor.MemoryPercent is >= 0 and <= 100);
             Check("native CPU sample is bounded", monitor.Cpu is >= 0 and <= 100);
             var audio = new AudioService();
-            Check("read Windows audio endpoint without changing volume", audio.Refresh() && audio.Volume is >= 0 and <= 1, audio.Error);
+            bool audioReady = audio.Refresh();
+            if (!audioReady && args.Contains("--allow-missing-audio") && audio.Error.Contains("0x80070490", StringComparison.OrdinalIgnoreCase))
+                Check("missing audio endpoint is reported as unavailable", !audio.Available, "No render device on this test host; volume hardware check omitted.");
+            else
+                Check("read Windows audio endpoint without changing volume", audioReady && audio.Volume is >= 0 and <= 1, audio.Error);
             using var media = new MediaService(); await media.InitializeAsync();
             if (args.Contains("--media-current"))
                 Check("current media snapshot", true, $"available={media.Available}, playing={media.Playing}, video={media.IsVideo}, title={media.Title}, artist={media.Artist}, source={media.Source}, sessions={media.Sessions.Count}");
