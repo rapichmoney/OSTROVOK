@@ -5,7 +5,11 @@ on:
   push:
     tags: ['v*']
     branches: [main]
-    paths: ['.github/workflows/release.yml']
+    paths: ['DesktopIsland.csproj', '.github/workflows/release.yml']
+
+concurrency:
+  group: public-release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -26,6 +30,19 @@ jobs:
       - name: Build portable archive
         shell: pwsh
         run: ./build.ps1
+      - name: Check YouTube controls
+        run: node tools/verify_youtube_controls.mjs
+      - name: Check packaged application
+        shell: pwsh
+        run: |
+          $reportPath = Join-Path $env:RUNNER_TEMP 'core-report.json'
+          $exe = Join-Path $PWD 'artifacts/portable/DesktopIsland.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList "--self-test --report `"$reportPath`"" -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'Self-test timed out' }
+          if ($process.ExitCode -ne 0) { throw 'Self-test failed' }
+          $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+          if ($report.failures -ne 0 -or $report.checks.Count -eq 0) { throw 'Invalid self-test report' }
+          Write-Output "Passed $($report.checks.Count) application checks"
       - name: Publish release
         shell: pwsh
         env:
@@ -38,9 +55,6 @@ jobs:
           $hash = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           [IO.File]::WriteAllText($archive.FullName + '.sha256', $hash + '  ' + $archive.Name + "`n")
           gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "OSTROVOK $version" --notes-file RELEASE_NOTES.md --target $env:GITHUB_SHA
-            if ($LASTEXITCODE -ne 0) { throw 'Release creation failed' }
-          }
-          gh release upload $tag $archive.FullName ($archive.FullName + '.sha256') --repo $env:GITHUB_REPOSITORY --clobber
-          if ($LASTEXITCODE -ne 0) { throw 'Asset upload failed' }
+          if ($LASTEXITCODE -eq 0) { throw 'This version already has a release. Bump the version before publishing again.' }
+          gh release create $tag $archive.FullName ($archive.FullName + '.sha256') --repo $env:GITHUB_REPOSITORY --title "OSTROVOK $version" --notes-file RELEASE_NOTES.md --target $env:GITHUB_SHA --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
