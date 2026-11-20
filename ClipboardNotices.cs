@@ -14,6 +14,7 @@ public partial class MainWindow
     private readonly DoubleCopyHook doubleCopyHook = new();
     private bool doubleCopyPending;
     private int doubleCopyRevision;
+    private bool? lastAutoPasteSucceeded;
     private string? verificationClipboardText;
     private readonly DispatcherTimer clipboardNoticeTimer = new();
     private CancellationTokenSource? translationCancellation;
@@ -42,6 +43,7 @@ public partial class MainWindow
     {
         if (closing || !settings.ClipboardEnabled) return;
         int revision = ++doubleCopyRevision;
+        lastAutoPasteSucceeded = null;
         doubleCopyPending = true; StopClipboardTranslation();
         try
         {
@@ -62,11 +64,14 @@ public partial class MainWindow
                     }
                     StopClipboardTranslation(); translationGate.Reset(); copiedNoticeFiles = [];
                     var entry = AddClipboardText(text); noticeEntry = entry;
+                    var pasteTarget = settings.AutoPasteDoubleCopy ? await ClipboardPasteTarget.CaptureAsync(request.Window, text) : null;
+                    if (settings.AutoPasteDoubleCopy && pasteTarget == null) lastAutoPasteSucceeded = false;
+                    if (closing || revision != doubleCopyRevision || !ReferenceEquals(noticeEntry, entry) || !settings.ClipboardEnabled) return;
                     entry.TranslationState = target == "en" ? "Переводим на английский…" : "Переводим на русский…";
                     ShowClipboardNotice(entry, entry.TranslationState, text, 45, busy: true);
                     translationCancellation = new CancellationTokenSource();
                     doubleCopyPending = false;
-                    await TranslateClipboardAsync(entry, translationCancellation.Token, target, copyResult: true);
+                    await TranslateClipboardAsync(entry, translationCancellation.Token, target, copyResult: true, pasteTarget: pasteTarget);
                     return;
                 }
                 catch (System.Runtime.InteropServices.ExternalException) { await Task.Delay(80); }
@@ -91,7 +96,7 @@ public partial class MainWindow
         }
     }
 
-    private async Task TranslateClipboardAsync(ClipboardEntry entry, CancellationToken token, string target = "ru", bool copyResult = false)
+    private async Task TranslateClipboardAsync(ClipboardEntry entry, CancellationToken token, string target = "ru", bool copyResult = false, ClipboardPasteTarget? pasteTarget = null)
     {
         try
         {
@@ -104,7 +109,7 @@ public partial class MainWindow
             if (target == "ru" && !copyResult) translationGate.Complete(target, result.Language);
             if (ReferenceEquals(noticeEntry, entry))
             {
-                if (target == "en" || copyResult) await CopyTranslationResultAsync(entry, token, target);
+                if (target == "en" || copyResult) await CopyTranslationResultAsync(entry, token, target, pasteTarget);
                 else ShowClipboardNotice(entry, "Перевод на русский", result.Text, 5);
             }
         }
@@ -114,7 +119,7 @@ public partial class MainWindow
         { if (!token.IsCancellationRequested) TranslationFailed(entry); }
     }
 
-    private async Task CopyTranslationResultAsync(ClipboardEntry entry, CancellationToken token, string target = "en")
+    private async Task CopyTranslationResultAsync(ClipboardEntry entry, CancellationToken token, string target = "en", ClipboardPasteTarget? pasteTarget = null)
     {
         string language = target == "en" ? "английский" : "русский";
         for (int attempt = 0; attempt < 3; attempt++)
@@ -136,7 +141,9 @@ public partial class MainWindow
                 }
                 catch { lastClipboard = previous; throw; }
                 translationGate.Reset();
-                ShowClipboardNotice(entry, "На " + language + " · скопировано", entry.Translation, 5); return;
+                bool pasted = pasteTarget != null && settings.AutoPasteDoubleCopy && !App.VerificationMode && await pasteTarget.TryPasteAsync(entry.Translation, token);
+                if (pasteTarget != null && settings.AutoPasteDoubleCopy) lastAutoPasteSucceeded = pasted;
+                ShowClipboardNotice(entry, "На " + language + (pasted ? " · вставлено" : " · скопировано"), entry.Translation, 5); return;
             }
             catch (System.Runtime.InteropServices.ExternalException) { await Task.Delay(80, token); }
         }

@@ -176,6 +176,8 @@ internal sealed class SettingsWindow : Window
                 Toggle(content, "Уведомлять о копировании в острове", settings.ClipboardNotifications, x => settings.ClipboardNotifications = x);
                 Toggle(content, "Удерживать уведомление при наведении", settings.HoldNoticesOnHover, x => settings.HoldNoticesOnHover = x);
                 Toggle(content, "Переводить иностранный текст на русский", settings.AutoTranslateClipboard, x => settings.AutoTranslateClipboard = x);
+                Toggle(content, "Вставлять перевод после двойного Ctrl+C", settings.AutoPasteDoubleCopy, x => settings.AutoPasteDoubleCopy = x);
+                Hint(content, "Автовставка работает в исходном редактируемом поле. При смене окна, выделения или буфера перевод остаётся для ручной вставки.");
                 Hint(content, "Текст отправляется в Google Translate или MyMemory. EN→RU не меняет системный буфер. После успешного EN→RU следующий русский текст переводится на английский и заменяет буфер. Затем активация сбрасывается. Оригиналы доступны в истории; предел — 4 000 символов.");
                 Hint(content, "До 50 записей в памяти. При закрытии приложения история удаляется. Уже скопированный текст при включении не считывается.");
                 Section(content, "Загрузки");

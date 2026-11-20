@@ -16,6 +16,9 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("automatic paste is opt in", !new AppSettings().AutoPasteDoubleCopy);
+            store.Save("auto-paste-settings.json", new AppSettings { AutoPasteDoubleCopy = true });
+            Check("automatic paste choice survives settings reload", store.Load("auto-paste-settings.json", () => new AppSettings()).AutoPasteDoubleCopy);
             var doubleCopy = new DoubleCopyGesture();
             IntPtr copyWindow = new(123);
             Check("single copy remains an ordinary copy", doubleCopy.KeyDown(0x43, true, false, 1000, copyWindow, 10) == null);

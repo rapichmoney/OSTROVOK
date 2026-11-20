@@ -28,6 +28,7 @@ public sealed class AppSettings
     public bool ClipboardNotifications { get; set; } = true;
     public bool HoldNoticesOnHover { get; set; }
     public bool AutoTranslateClipboard { get; set; } = true;
+    public bool AutoPasteDoubleCopy { get; set; }
     public bool DownloadsEnabled { get; set; }
     public string DownloadFolder { get; set; } = "";
     public bool HideInFullscreen { get; set; }
