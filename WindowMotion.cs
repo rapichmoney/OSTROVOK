@@ -15,7 +15,7 @@ public partial class MainWindow
         if (trackVisualPending && value != expanded) CancelTrackVisualHold();
         idleGlow?.Hide();
         bool collapsing = !value && expanded;
-        CaptureCollapseFrame(collapsing);
+        ClearCollapseFrame();
         bool opening = value && !expanded;
         bool compactResize = !value && !expanded && Math.Abs(Height - CompactHeight) < 1 && !HasCompactNotification;
         var revision = ++shellRevision;
@@ -42,6 +42,11 @@ public partial class MainWindow
         Shell.BeginAnimation(System.Windows.Controls.Border.CornerRadiusProperty, null);
         ApplyShellAppearance();
         var plan = MotionDynamics.Plan(settings.AnimationStyle, targetWidth > Width + .1 || targetHeight > Height + .1, settings.AnimationSpeed, settings.SpringStrength);
+        if (collapsing)
+        {
+            var axis = new MotionAxis(420, 0, new CubicEase { EasingMode = EasingMode.EaseOut });
+            plan = new ShellMotionPlan(axis, axis);
+        }
         if (compactResize)
         {
             var axis = new MotionAxis(360 * 100 / Math.Clamp(settings.AnimationSpeed, 70, 140), 0, new CubicEase { EasingMode = EasingMode.EaseInOut });
@@ -85,13 +90,20 @@ public partial class MainWindow
         Motion.Tween(this, WidthProperty, targetWidth, plan.Width.Duration, plan.Width.Delay, completed: plan.Width.End >= plan.Height.End ? complete : null, easingOverride: widthEase);
         Motion.Tween(this, HeightProperty, targetHeight, plan.Height.Duration, plan.Height.Delay, completed: plan.Height.End > plan.Width.End ? complete : null, easingOverride: heightEase);
         if (opening) Motion.RevealContent(Body, Math.Min(420, duration - 60), 60);
-        else Motion.Tween(Body, OpacityProperty, value ? 1 : 0, value ? 180 : 200);
-        if (collapsing) { Motion.Enter(Header, 0, 220); }
+        else Motion.Tween(Body, OpacityProperty, value ? 1 : 0, value ? 180 : 120);
+        if (collapsing) BeginCollapseContent();
         Motion.Tween(Footer, OpacityProperty, value ? 1 : 0, value ? 240 : 100, value ? 80 : 0);
     }
     private void FinishExpansionLayout(bool value)
     {
         ClearCollapseFrame();
+        if (!value)
+        {
+            HeaderRow.Height = new GridLength(HasCompactNotification ? 62 : 34);
+            TopNavigation.Visibility = ToolbarIndicatorLayer.Visibility = Visibility.Collapsed;
+            UpdateCompactNotification(false);
+            Motion.ClearContentMotion(HasCompactNotification ? (FrameworkElement)CompactCard : Header);
+        }
         Body.HorizontalAlignment = HorizontalAlignment.Stretch; Body.VerticalAlignment = VerticalAlignment.Stretch;
         Body.Visibility = Footer.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         Body.BeginAnimation(OpacityProperty, null); Footer.BeginAnimation(OpacityProperty, null);
@@ -103,6 +115,7 @@ public partial class MainWindow
     {
         if (shellMoving && !closing)
         {
+            AdvanceCollapseContent();
             var area = Services.WindowInterop.WorkArea(handle);
             double width = Math.Min(Width, area.Width), height = Math.Min(Height, area.Height);
             double left = Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - width));

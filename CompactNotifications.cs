@@ -9,7 +9,7 @@ public partial class MainWindow
     private bool compactNoticeGeometryActive;
     private string compactNoticeSignature = "";
     private double compactNotificationWidth = 460;
-    private bool HasCompactNotification => telegramNoticeActive || (clipboardNoticeActive && settings.ClipboardNotifications);
+    private bool HasCompactNotification => UpdateNoticeActive || telegramNoticeActive || (clipboardNoticeActive && settings.ClipboardNotifications);
     private double CompactPresentationWidth => trackVisualPending && !HasCompactNotification ? heldWindowWidth : HasCompactNotification ? Math.Max(StandbyCompactWidth, compactNotificationWidth * Math.Clamp(settings.CompactScale, 75, 150) / 100) : StandbyCompactWidth;
     private double CompactPresentationHeight => HasCompactNotification ? 72 * Math.Clamp(settings.CompactScale, 75, 150) / 100 : CompactHeight;
 
@@ -20,10 +20,15 @@ public partial class MainWindow
         if (active) CancelTrackVisualHold();
         bool transition = compactVisualNotice != active;
         if (transition) { CaptureCompactTransition(active); compactVisualNotice = active; }
-        Header.Visibility = !expanded && !active ? Visibility.Visible : Visibility.Collapsed;
-        CompactCard.Visibility = !expanded && active ? Visibility.Visible : Visibility.Collapsed;
+        Header.Visibility = !expanded && !collapseContentActive && !active ? Visibility.Visible : Visibility.Collapsed;
+        System.Windows.Controls.Grid.SetRow(CompactCard, expanded && UpdateNoticeActive ? 1 : 0);
+        CompactCard.MinHeight = expanded && UpdateNoticeActive ? 56 : 0;
+        CompactCard.Visibility = !collapseContentActive && active && (!expanded || UpdateNoticeActive) ? Visibility.Visible : Visibility.Collapsed;
         CompactLeftHandle.Visibility = CompactRightHandle.Visibility = expanded || active ? Visibility.Collapsed : Visibility.Visible;
-        if (active)
+        UpdateLaterButton.Visibility = Visibility.Collapsed; CompactCardAction.IsEnabled = true;
+        CompactCardAction.VerticalAlignment = VerticalAlignment.Center;
+        if (UpdateNoticeActive) RenderUpdateNotice();
+        else if (active)
         {
             string title = telegramNoticeActive ? "Telegram · " + TelegramNoticeTitle.Text : ClipboardNoticeTitle.Text;
             string body = telegramNoticeActive ? TelegramNoticeText.Text : ClipboardNoticeText.Text;
@@ -90,8 +95,9 @@ public partial class MainWindow
         if ((!shellMoving || compactNoticeGeometryActive != active) && (Math.Abs(Width - width) > .5 || Math.Abs(Height - height) > .5)) AnimateExpansion(false);
     }
 
-    private void CompactCardActionClick(object sender, RoutedEventArgs e)
+    private async void CompactCardActionClick(object sender, RoutedEventArgs e)
     {
+        if (UpdateNoticeActive) { await InstallAppUpdateAsync(); return; }
         if (!telegramNoticeActive && clipboardNoticeActive && copiedNoticeFiles.Length > 0) { AddPaths(copiedNoticeFiles); DismissClipboardNotice(this, EventArgs.Empty); return; }
         if (telegramNoticeActive) OpenTelegram(sender, e);
         else OpenClipboardNotice(sender, new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = MouseLeftButtonDownEvent });

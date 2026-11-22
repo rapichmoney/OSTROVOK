@@ -59,6 +59,14 @@ public partial class MainWindow
                 if (frame is 45 or 95 or 130) { ShowLyrics(lyrics, lyrics.Status); UpdateLyricPosition(1); }
             });
             await Record("collapse", 130, 710, frame => { if (frame == 15 || frame == 85) SetExpanded(false); if (frame == 50) SetExpanded(true); });
+            await Record("update-notice",100,160,frame =>
+            {
+                if (frame != 15) return;
+                availableRelease = new AppRelease(new Version(1,0,20),new Uri("https://example.test/archive"),2048,"",new Uri("https://example.test/checksum"));
+                updateDetail = "Настройки сохранятся";
+                UpdateCompactNotification(true);
+            });
+            availableRelease = null;
             File.WriteAllText(Path.Combine(output,"complete.txt"), "Actual WPF controls. Synthetic tracks, original artwork and original text. No external messages, clipboard or audio.");
 
             async Task Record(string name, int count, int height, Action<int> update)
@@ -73,7 +81,7 @@ public partial class MainWindow
                     using (var dc = scene.RenderOpen())
                     {
                         dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(15,18,20)),null,new Rect(0,0,720,height));
-                        var caption = new FormattedText(name.StartsWith("read-along") ? "Read Along · демонстрационные метки слов" : name == "collapse" ? "Сворачивание · интерфейс OSTROVOK" : "Смена треков · тестовая очередь", CultureInfo.GetCultureInfo("ru-RU"), FlowDirection.LeftToRight, new Typeface("Segoe UI"), 14, Brushes.LightGray,1);
+                        var caption = new FormattedText(name == "update-notice" ? "Уведомление об обновлении · демонстрация" : name.StartsWith("read-along") ? "Read Along · демонстрационные метки слов" : name == "collapse" ? "Сворачивание · интерфейс OSTROVOK" : "Смена треков · тестовая очередь", CultureInfo.GetCultureInfo("ru-RU"), FlowDirection.LeftToRight, new Typeface("Segoe UI"), 14, Brushes.LightGray,1);
                         dc.DrawText(caption,new Point(24,12)); dc.DrawImage(native,new Rect((720-ActualWidth)/2,48,ActualWidth,ActualHeight));
                     }
                     var image = new RenderTargetBitmap(720,height,96,96,PixelFormats.Pbgra32); image.Render(scene);

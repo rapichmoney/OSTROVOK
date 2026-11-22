@@ -222,6 +222,11 @@ internal sealed class SettingsWindow : Window
                 Hint(content, "Поддерживаются XInput-геймпады. Windows передаёт уровень заряда, а не точный процент; USB-устройства могут не передавать заряд.");
                 Section(content, "Запуск");
                 Toggle(content, "Запускать при входе в Windows", island.AutostartEnabled, island.SetAutostart);
+                Section(content, "Обновления");
+                Toggle(content, "Проверять обновления на GitHub", settings.CheckUpdates, x => settings.CheckUpdates = x);
+                Hint(content, island.UpdateStatus);
+                Action(content, "Проверить обновления", async () => { await island.CheckAppUpdatesAsync(true); BuildPage(); });
+                if (island.UpdateStatus.StartsWith("Доступна", StringComparison.Ordinal)) Action(content, "Скачать и установить", async () => await island.InstallAppUpdateAsync());
                 Section(content, "Версия"); Hint(content, "OSTROVOK " + typeof(App).Assembly.GetName().Version!.ToString(3) + " · Windows x64");
                 Hint(content, "Код приложения написан отдельно. Данные и настройки Dyland не импортируются.");
                 Action(content, "Показать остров", island.PreviewIsland);

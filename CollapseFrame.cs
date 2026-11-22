@@ -1,24 +1,37 @@
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Diagnostics;
 
 namespace DesktopIsland;
 
 public partial class MainWindow
 {
+    private bool collapseContentActive;
+    private readonly Stopwatch collapseContentClock = new();
     private void ClearCollapseFrame()
     {
+        collapseContentActive = false;
+        collapseContentClock.Reset();
         TrackVisualSnapshot.BeginAnimation(OpacityProperty, null);
         TrackVisualSnapshot.Source = null; TrackVisualSnapshot.Visibility = Visibility.Collapsed;
+        Motion.ClearContentMotion(TopNavigation);
     }
-    private void CaptureCollapseFrame(bool capture)
+    private void BeginCollapseContent()
     {
         ClearCollapseFrame();
-        if (!capture || !Motion.Enabled || !Shell.IsVisible || Shell.ActualWidth < 1 || Shell.ActualHeight < 1) return;
-        var dpi = VisualTreeHelper.GetDpi(Shell);
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(Shell.ActualWidth * dpi.DpiScaleX), (int)Math.Ceiling(Shell.ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-        bitmap.Render(Shell); bitmap.Freeze();
-        TrackVisualSnapshot.Source = bitmap; TrackVisualSnapshot.Width = Shell.ActualWidth; TrackVisualSnapshot.Height = Shell.ActualHeight;
-        TrackVisualSnapshot.Visibility = Visibility.Visible; TrackVisualSnapshot.Opacity = 1;
-        Motion.Tween(TrackVisualSnapshot, OpacityProperty, 0, 260, completed: ClearCollapseFrame);
+        collapseContentActive = true;
+        collapseContentClock.Restart();
+        HeaderRow.Height = new GridLength(64);
+        Header.Visibility = CompactCard.Visibility = Visibility.Collapsed;
+        TopNavigation.Visibility = Visibility.Visible;
+        Motion.Tween(TopNavigation, OpacityProperty, 0, 70);
+    }
+    private void AdvanceCollapseContent()
+    {
+        if (!collapseContentActive || collapseContentClock.ElapsedMilliseconds < 70 || expanded || closing || hiding) return;
+        collapseContentActive = false;
+        TopNavigation.Visibility = ToolbarIndicatorLayer.Visibility = Visibility.Collapsed;
+        HeaderRow.Height = new GridLength(HasCompactNotification ? 62 : 34);
+        UpdateCompactNotification(false);
+        Motion.Enter(HasCompactNotification ? (FrameworkElement)CompactCard : Header, 0, 140);
     }
 }

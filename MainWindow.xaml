@@ -68,9 +68,12 @@
         <Path x:Name="CompactCardIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="2,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/>
         <TextBlock x:Name="CompactCardTitle" Grid.Column="1" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <TextBlock x:Name="CompactCardText" Grid.Row="1" Grid.Column="1" FontSize="13" Foreground="{StaticResource Secondary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-        <Button x:Name="CompactCardAction" Grid.RowSpan="2" Grid.Column="2" Content="Буфер" Style="{StaticResource Primary}" Background="#F0F1F3" Foreground="#202124" Margin="12,0,0,0" Padding="10,5" MinWidth="64" Height="30" VerticalAlignment="Center" Click="CompactCardActionClick">
+        <StackPanel Grid.RowSpan="2" Grid.Column="2" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+        <Button x:Name="UpdateLaterButton" Content="Позже" Click="PostponeAppUpdate" Style="{StaticResource QuietButton}" Margin="0,0,8,0" Padding="10,5" Height="30" VerticalAlignment="Center" Visibility="Collapsed"/>
+        <Button x:Name="CompactCardAction" Content="Буфер" Style="{StaticResource Primary}" Background="#F0F1F3" Foreground="#202124" Margin="0" Padding="10,5" MinWidth="64" Height="30" VerticalAlignment="Center" Click="CompactCardActionClick">
           <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="15" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template>
         </Button>
+        </StackPanel>
         <TextBlock x:Name="NoticeQueueCount" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="11" Foreground="{StaticResource Secondary}" IsHitTestVisible="False"/>
       </Grid>
       <Border x:Name="NoticeLifetime" Grid.Row="0" Height="2" Margin="24,0,24,0" VerticalAlignment="Bottom" Background="#61717F" Visibility="Collapsed" IsHitTestVisible="False" RenderTransformOrigin="0,0"><Border.RenderTransform><ScaleTransform x:Name="NoticeLifetimeScale"/></Border.RenderTransform></Border>

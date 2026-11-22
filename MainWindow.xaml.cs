@@ -144,6 +144,12 @@ public partial class MainWindow : Window
         await audio.RefreshDeviceNameAsync(); AudioDeviceText.Text = audio.DeviceName;
         await LoadWeatherAsync();
         await AutoConnectAsync(false);
+        if (Environment.GetCommandLineArgs().Contains("--updated"))
+        {
+            AddActivity("Обновление установлено", "OSTROVOK " + Services.AppUpdateService.CurrentVersion.ToString(3));
+            ShowClipboardNotice(new ClipboardEntry(), "Обновлено до " + Services.AppUpdateService.CurrentVersion.ToString(3), "Настройки сохранены", 7);
+        }
+        if (Environment.GetCommandLineArgs().Contains("--update-failed")) ShowClipboardNotice(new ClipboardEntry(), "Обновление не установлено", "Предыдущая версия восстановлена. Повторите попытку в настройках системы.", 8);
         AddActivity("Приложение запущено", "Музыка, файлы, заметки, задачи и календарь готовы.");
     }
 
@@ -153,6 +159,7 @@ public partial class MainWindow : Window
         ticking = true;
         try
         {
+            if (DateTime.UtcNow >= nextUpdateCheck) _ = CheckAppUpdatesAsync();
             UpdateClock(); CheckReminders(); downloads.Tick();
             RefreshIdleContent();
             UpdateDiscordPresence();

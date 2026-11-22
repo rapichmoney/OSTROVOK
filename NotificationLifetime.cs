@@ -12,7 +12,7 @@ public partial class MainWindow
         bool queued = telegramNoticeActive && telegramQueue.Count > 0;
         NoticeQueueCount.Text = queued ? "ещё " + telegramQueue.Count : "";
         CompactCardAction.VerticalAlignment = queued ? VerticalAlignment.Top : VerticalAlignment.Center;
-        CompactCardAction.Margin = new Thickness(12, 0, 0, 0);
+        CompactCardAction.Margin = new Thickness(0);
     }
     private void StartNoticeLifetime(TimeSpan duration)
     {

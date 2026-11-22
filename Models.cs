@@ -61,6 +61,7 @@ public sealed class AppSettings
     public bool LyricsEnabled { get; set; } = true;
     public bool LyricsOnCompact { get; set; } = true;
     public int[] HiddenTabs { get; set; } = [];
+    public bool CheckUpdates { get; set; } = true;
     public bool AutoSetup { get; set; } = true;
     public int SetupVersion { get; set; }
     public bool ShowGamepadBattery { get; set; } = true;

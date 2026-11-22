@@ -25,26 +25,29 @@ public static class Motion
         long token = tokens.TryGetValue(property, out long previous) ? previous + 1 : 1;
         tokens[property] = token;
         double from = (double)target.GetValue(property);
-        animated.BeginAnimation(property, null);
-        target.SetValue(property, to);
-        if (!Enabled || milliseconds <= 0) { completed?.Invoke(); return; }
+        if (!Enabled || milliseconds <= 0)
+        { animated.BeginAnimation(property, null); target.SetValue(property, to); completed?.Invoke(); return; }
         AnimationTimeline animation;
         var easing = easingOverride ?? new CubicEase { EasingMode = EasingMode.EaseOut };
         if (delay > 0)
         {
-            var frames = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(delay + milliseconds), FillBehavior = FillBehavior.Stop };
+            var frames = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(delay + milliseconds), FillBehavior = FillBehavior.HoldEnd };
             frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
             frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(delay))));
             frames.KeyFrames.Add(new EasingDoubleKeyFrame(to, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(delay + milliseconds)), easing));
             animation = frames;
         }
-        else animation = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(milliseconds)) { FillBehavior = FillBehavior.Stop, EasingFunction = easing };
+        else animation = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(milliseconds)) { FillBehavior = FillBehavior.HoldEnd, EasingFunction = easing };
         animation.Completed += (_, _) =>
         {
             if (tokens[property] != token) return;
+            target.SetValue(property, to);
             animated.BeginAnimation(property, null);
             completed?.Invoke();
         };
+        // Until WPF's first timing tick, keep the current rendered value underneath
+        // the clock. Commit the destination only once the animation has reached it.
+        target.SetValue(property, from);
         animated.BeginAnimation(property, animation, HandoffBehavior.SnapshotAndReplace);
     }
 

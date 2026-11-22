@@ -199,7 +199,7 @@ public partial class MainWindow
     private static string KeyboardStatus()
     {
         uint thread = GetWindowThreadProcessId(GetForegroundWindow(), out _);
-        try { string language = CultureInfo.GetCultureInfo((int)(GetKeyboardLayout(thread).ToInt64() & 0xFFFF)).TwoLetterISOLanguageName.ToUpperInvariant(); return (language == "EN" ? "ENG" : language) + ((GetKeyState(0x14) & 1) != 0 ? " CAPS" : ""); }
+        try { int layout = (int)(GetKeyboardLayout(thread).ToInt64() & 0xFFFF); if (layout == 0) return ""; string language = CultureInfo.GetCultureInfo(layout).TwoLetterISOLanguageName.ToUpperInvariant(); return (language == "EN" ? "ENG" : language) + ((GetKeyState(0x14) & 1) != 0 ? " CAPS" : ""); }
         catch (CultureNotFoundException) { return ""; }
     }
     private void UpdateKeyboardIndicator(string label)
