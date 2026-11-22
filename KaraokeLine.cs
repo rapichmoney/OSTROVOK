@@ -3,6 +3,7 @@ using System.Windows.Media;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using System.Text.RegularExpressions;
+using DesktopIsland.Services;
 
 namespace DesktopIsland;
 
@@ -14,6 +15,12 @@ internal sealed class KaraokeLine(TextBlock source, bool singleLine = false) : F
     private string measuredKey = "";
     private bool readAlong;
     private int markerStart = -1;
+    private int markerRevision;
+    internal Rect MarkerBounds => (Rect)GetValue(MarkerProperty);
+    internal double MarkerAlpha => (double)GetValue(MarkerAlphaProperty);
+    private static readonly DependencyProperty FrameProperty = DependencyProperty.Register("TimingFrame", typeof(ReadAlongFrame), typeof(KaraokeLine), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+    internal ReadAlongFrame? TimingFrame { get => (ReadAlongFrame?)GetValue(FrameProperty); set { if (TimingFrame != value) SetValue(FrameProperty, value); } }
+    private static readonly DependencyProperty MarkerAlphaProperty = DependencyProperty.Register("MarkerAlpha", typeof(double), typeof(KaraokeLine), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
     private static readonly DependencyProperty MarkerProperty = DependencyProperty.Register("Marker", typeof(Rect), typeof(KaraokeLine), new FrameworkPropertyMetadata(Rect.Empty, FrameworkPropertyMetadataOptions.AffectsRender));
     private static readonly DependencyProperty PanProperty = DependencyProperty.Register("Pan", typeof(double), typeof(KaraokeLine), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty WordPositionProperty = DependencyProperty.Register(nameof(WordPosition), typeof(double?), typeof(KaraokeLine), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -30,7 +37,8 @@ internal sealed class KaraokeLine(TextBlock source, bool singleLine = false) : F
     }
     private void ResetMarker()
     {
-        markerStart = -1; BeginAnimation(MarkerProperty, null); SetValue(MarkerProperty, Rect.Empty);
+        ++markerRevision; markerStart = -1; BeginAnimation(MarkerProperty, null); SetValue(MarkerProperty, Rect.Empty);
+        BeginAnimation(MarkerAlphaProperty, null); SetValue(MarkerAlphaProperty, 0d);
         BeginAnimation(PanProperty, null); SetValue(PanProperty, 0d);
     }
     public static readonly DependencyProperty ProgressProperty = DependencyProperty.Register(nameof(Progress), typeof(double), typeof(KaraokeLine), new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -68,29 +76,43 @@ internal sealed class KaraokeLine(TextBlock source, bool singleLine = false) : F
         }
         if (ReadAlong)
         {
-            if (characters < 0 || words.Length == 0) return;
-            var word = words.FirstOrDefault(x => x.Index + x.Length > characters) ?? words[^1];
-            if (word.Index > 0 && formatted.BuildHighlightGeometry(origin, 0, word.Index) is Geometry played)
+            var frame = TimingFrame;
+            if (words.Length == 0) return;
+            var word = characters >= 0 ? words.FirstOrDefault(x => x.Index + x.Length > characters) ?? words[^1] : null;
+            int start = frame?.Start ?? word?.Index ?? -1, length = frame?.Length ?? word?.Length ?? 0;
+            int read = frame?.ReadThrough ?? Math.Max(0, start);
+            if (read > 0 && formatted.BuildHighlightGeometry(origin, 0, Math.Min(text.Length, read)) is Geometry played)
             { dc.PushClip(played); dc.DrawText(formatted, origin); dc.Pop(); }
-            if (formatted.BuildHighlightGeometry(origin, word.Index, word.Length) is not Geometry geometry) return;
-            var target = geometry.Bounds; target.Inflate(2, 1);
-            if (markerStart != word.Index || ((Rect)GetValue(MarkerProperty)).IsEmpty)
+            if (start < 0 || length <= 0)
             {
-                markerStart = word.Index; var from = (Rect)GetValue(MarkerProperty);
-                BeginAnimation(MarkerProperty, null); SetValue(MarkerProperty, target);
+                if (markerStart >= 0) { markerStart = -1; Motion.Tween(this, MarkerAlphaProperty, 0, 80); }
+                DrawMarker(dc, origin); return;
+            }
+            if (start > text.Length - length || formatted.BuildHighlightGeometry(origin, start, length) is not Geometry geometry) return;
+            var target = geometry.Bounds; target.Inflate(2, 1);
+            if (markerStart != start || ((Rect)GetValue(MarkerProperty)).IsEmpty)
+            {
+                markerStart = start; var from = (Rect)GetValue(MarkerProperty);
+                double travel = frame != null ? Math.Clamp(frame.Duration * 180, 28, 100) : WordPosition.HasValue ? 100 : 220;
+                int revision = ++markerRevision;
+                BeginAnimation(MarkerProperty, null);
                 if (Motion.Enabled && !from.IsEmpty && Math.Abs(from.Y - target.Y) < 12)
-                    BeginAnimation(MarkerProperty, new RectAnimation(from, target, TimeSpan.FromMilliseconds(WordPosition.HasValue ? 120 : 300)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.Stop });
+                {
+                    SetValue(MarkerProperty, from);
+                    var motion = new RectAnimation(from, target, TimeSpan.FromMilliseconds(travel)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.HoldEnd };
+                    motion.Completed += (_, _) => { if (revision == markerRevision) { SetValue(MarkerProperty, target); BeginAnimation(MarkerProperty, null); } };
+                    BeginAnimation(MarkerProperty, motion);
+                }
+                else SetValue(MarkerProperty, target);
+                Motion.Tween(this, MarkerAlphaProperty, 1, travel);
                 if (singleLine)
                 {
                     double pan = Math.Clamp(target.X + target.Width / 2 - ActualWidth * .55, 0, Math.Max(0, formatted.WidthIncludingTrailingWhitespace - ActualWidth));
-                    Motion.Tween(this, PanProperty, pan, 240);
+                    Motion.Tween(this, PanProperty, pan, Math.Min(180, Math.Max(60, travel * 1.5)));
                 }
             }
             if (!Motion.Enabled) { BeginAnimation(MarkerProperty, null); SetValue(MarkerProperty, target); }
-            var marker = (Rect)GetValue(MarkerProperty);
-            dc.DrawRoundedRectangle(Brushes.WhiteSmoke, null, marker, 4, 4);
-            dc.PushClip(new RectangleGeometry(marker, 4, 4));
-            formatted.SetForegroundBrush(new SolidColorBrush(Color.FromRgb(20, 22, 25))); dc.DrawText(formatted, origin); dc.Pop(); formatted.SetForegroundBrush(Brushes.White);
+            DrawMarker(dc, origin);
             return;
         }
         int complete = Math.Clamp((int)characters, 0, text.Length);
@@ -102,5 +124,14 @@ internal sealed class KaraokeLine(TextBlock source, bool singleLine = false) : F
             if (!bounds.IsEmpty) clip.Children.Add(new RectangleGeometry(new Rect(bounds.X, bounds.Y, bounds.Width * (characters - complete), bounds.Height)));
         }
         dc.PushClip(clip); dc.DrawText(formatted, origin); dc.Pop();
+    }
+    private void DrawMarker(DrawingContext dc, Point origin)
+    {
+        var marker = (Rect)GetValue(MarkerProperty); double alpha = (double)GetValue(MarkerAlphaProperty);
+        if (marker.IsEmpty || alpha <= 0 || formatted == null) return;
+        dc.PushOpacity(alpha); dc.DrawRoundedRectangle(Brushes.WhiteSmoke, null, marker, 4, 4);
+        dc.PushClip(new RectangleGeometry(marker, 4, 4));
+        formatted.SetForegroundBrush(new SolidColorBrush(Color.FromRgb(20, 22, 25))); dc.DrawText(formatted, origin);
+        dc.Pop(); dc.Pop(); formatted.SetForegroundBrush(Brushes.White);
     }
 }

@@ -16,6 +16,9 @@ public partial class MainWindow
     internal KeyValuePair<string,string>[] PlaybackSources => new[] { new KeyValuePair<string,string>("", "Автоматически") }
         .Concat(media.Sessions.Select(x => x.SourceAppUserModelId).Distinct().Select(x => new KeyValuePair<string,string>(x, FriendlyPlayerName(x)))).ToArray();
     internal string PlaybackSource => media.SelectedSource ?? "";
+    internal string ReadAlongTimingStatus => lyricsResult?.Synced != true ? "Для текущего трека синхронизированный текст пока не найден."
+        : lyricsResult.Lines.Any(x => x.Words?.Length > 0) ? "В текущем тексте есть метки слов. Учитываются начало и окончание слова, включая паузы."
+        : "В текущем тексте есть только метки строк. Подсветка слов рассчитывается приблизительно.";
     internal async Task SelectPlaybackSourceAsync(string id) { media.SelectedSource = id.Length == 0 ? null : id; await media.RefreshAsync(); }
     internal void RetryCurrentLyrics() => RetryLyrics(this, new RoutedEventArgs());
     internal void OpenCurrentLyricsFile() => OpenLyricsFile(this, new RoutedEventArgs());

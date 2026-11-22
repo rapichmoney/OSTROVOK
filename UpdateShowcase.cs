@@ -13,6 +13,7 @@ public partial class MainWindow
     {
         string output = Environment.GetCommandLineArgs().SkipWhile(x => x != "--output").Skip(1).FirstOrDefault() ?? Path.Combine(Path.GetTempPath(), "OSTROVOK-update");
         Directory.CreateDirectory(output);
+        bool readAlongOnly = Environment.GetCommandLineArgs().Contains("--showcase-readalong");
         try
         {
             timer.Stop(); lyricTimer.Stop(); leaveTimer.Stop(); media.Updated -= UpdateMedia; media.Dispose();
@@ -46,12 +47,16 @@ public partial class MainWindow
                 new(0,"Город за окном становится тише",4.5,[new(0,0,5),new(.9,6,2),new(1.4,9,5),new(2.2,15,10),new(3.4,26,4)]),
                 new(4.5,"Мы продолжаем путь без остановок",9,[new(4.5,0,2),new(5.1,3,10),new(6.2,14,4),new(7.1,19,3),new(7.7,23,9)]),
                 new(9,"Свет остаётся рядом с нами",13.5,[new(9,0,4),new(9.8,5,8),new(10.9,14,5),new(11.7,20,1),new(12.1,22,4)])]);
+            if (readAlongOnly) lyrics = new LyricsResult("Демонстрационные метки слов и пауз", [
+                new(0,"Город за окном становится тише",5.5,[new(1,0,5,1.5),new(1.8,6,2,2.1),new(2.3,9,5,2.9),new(3.6,15,10,4.25),new(4.4,26,4,4.9)]),
+                new(5.5,"Мы продолжаем путь без остановок",10,[new(5.5,0,2,5.8),new(6.2,3,10,6.9),new(7.1,14,4,7.4),new(7.8,19,3,8),new(8.4,23,9,9.1)])]);
             ShowLyrics(lyrics, lyrics.Status); UpdateLyricPosition(0); RefreshIdleContent();
             await Task.Delay(1200); UpdateTrackIntroduction();
             AnimateExpansion(true); await AwaitShellAsync();
             await Record("read-along-expanded", 220, 710, frame => UpdateLyricPosition(frame * .045));
             SetExpanded(false); await AwaitShellAsync();
             await Record("read-along-compact", 220, 160, frame => { double t = frame * .045; UpdateLyricPosition(t); RefreshIdleContent(); UpdateCompactLyricProgress(t, LyricsService.LineAt(lyrics.Lines, t)); });
+            if (readAlongOnly) { File.WriteAllText(Path.Combine(output,"complete.txt"), "Actual WPF controls with synthetic word onsets and silence gaps. No recorded audio or personal messages."); return; }
             SetExpanded(true); await AwaitShellAsync();
             await Record("track-switching", 145, 710, frame =>
             {

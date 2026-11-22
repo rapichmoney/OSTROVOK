@@ -67,14 +67,14 @@ public partial class MainWindow
         if (!closing && expanded && Navigation.SelectedIndex == 0 && media.Available && lyricsResult?.Synced == true)
         {
             double expandedPosition = media.Position;
-            int expandedIndex = Services.LyricsService.LineAt(lyricsResult.Lines, expandedPosition, settings.LyricsAdjustment);
+            int expandedIndex = Services.LyricsService.LineAt(lyricsResult.Lines, expandedPosition, LyricPositionAdjustment);
             if (expandedIndex != currentLyricIndex) UpdateLyricPosition(expandedPosition);
             else UpdateExpandedLyricProgress(expandedPosition);
             return;
         }
         if (closing || expanded || !Header.IsVisible || !compactMusicActive || !HasTimedCompactLyrics) return;
         double position = media.Position;
-        int index = Services.LyricsService.LineAt(lyricsResult!.Lines, position, settings.LyricsAdjustment);
+        int index = Services.LyricsService.LineAt(lyricsResult!.Lines, position, LyricPositionAdjustment);
         if (index != currentLyricIndex) UpdateLyricPosition(position);
         else UpdateCompactLyricProgress(position, index);
     }
@@ -97,7 +97,8 @@ public partial class MainWindow
         {
             double time = position + settings.LyricsAdjustment + settings.ReadAlongAdjustment;
             CompactLyricFill.Visibility = Visibility.Collapsed; CompactTrack.Opacity = 0;
-            compactReadAlong.ReadAlong = true; compactReadAlong.WordPosition = time < line.Seconds ? -1 : Services.LyricsService.WordCharacterAt(line, time);
+            var frame = Services.ReadAlongTiming.At(line, end, time);
+            compactReadAlong.ReadAlong = true; compactReadAlong.TimingFrame = frame; compactReadAlong.WordPosition = frame.Position;
             compactReadAlong.Progress = end > line.Seconds ? (time - line.Seconds) / (end - line.Seconds) : 1;
             compactReadAlong.ToolTip = line.Words?.Length > 0 ? "Read Along: метки слов из источника" : "Read Along: приблизительно по таймкодам строки";
             compactReadAlong.Visibility = Visibility.Visible; return;

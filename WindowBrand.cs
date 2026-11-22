@@ -13,6 +13,22 @@ internal sealed class WindowBrand : IDisposable
     }
     private readonly System.Drawing.Icon small, large;
     private readonly Window window;
+    private bool disposed;
+    private static string? taskbarIcon;
+    internal static string TaskbarIconPath
+    {
+        get
+        {
+            if (taskbarIcon != null) return taskbarIcon;
+            using var resource = typeof(App).Assembly.GetManifestResourceStream("DesktopIsland.Assets.Brand.ostrovok.ico")!;
+            using var memory = new MemoryStream(); resource.CopyTo(memory); byte[] bytes = memory.ToArray();
+            string name = "ostrovok-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))[..16] + ".ico";
+            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIsland", "Brand");
+            Directory.CreateDirectory(folder); string path = Path.Combine(folder, name);
+            if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes);
+            return taskbarIcon = path;
+        }
+    }
     internal WindowBrand(Window window)
     {
         this.window = window;
@@ -21,6 +37,7 @@ internal sealed class WindowBrand : IDisposable
         small = new System.Drawing.Icon(icon, 16, 16); large = new System.Drawing.Icon(icon, 32, 32);
         window.Icon = MainWindow.BrandIcon; window.ShowInTaskbar = true;
         window.SourceInitialized += Apply; window.Loaded += Apply;
+        window.Closing += ClearTaskbar;
         window.Closed += (_, _) => Dispose();
     }
     private void Apply(object? sender, EventArgs e)
@@ -29,6 +46,13 @@ internal sealed class WindowBrand : IDisposable
         if (handle == IntPtr.Zero) return;
         SendMessage(handle, 0x80, new IntPtr(0), small.Handle);
         SendMessage(handle, 0x80, new IntPtr(1), large.Handle);
+        try { Services.TaskbarIdentity.Apply(handle, TaskbarIconPath); }
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException) { }
+    }
+    private void ClearTaskbar(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var handle = new WindowInteropHelper(window).Handle; if (handle == IntPtr.Zero) return;
+        try { Services.TaskbarIdentity.Clear(handle); } catch (COMException) { }
     }
     internal static bool NativeIconsPresent(Window window)
     {
@@ -36,7 +60,7 @@ internal sealed class WindowBrand : IDisposable
         return handle != IntPtr.Zero && SendMessage(handle, 0x7F, IntPtr.Zero, IntPtr.Zero) != IntPtr.Zero && SendMessage(handle, 0x7F, new IntPtr(1), IntPtr.Zero) != IntPtr.Zero;
     }
     public void Dispose()
-    { window.SourceInitialized -= Apply; window.Loaded -= Apply; small.Dispose(); large.Dispose(); }
+    { if (disposed) return; disposed = true; window.SourceInitialized -= Apply; window.Loaded -= Apply; window.Closing -= ClearTaskbar; small.Dispose(); large.Dispose(); }
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr parameter, IntPtr value);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
 }

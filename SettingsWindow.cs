@@ -202,6 +202,7 @@ internal sealed partial class SettingsWindow : Window
                 Toggle(content, "Read Along — плашка на текущем слове", settings.ReadAlong, x => settings.ReadAlong = x);
                 Scale(content, "Сдвиг слов Read Along", settings.ReadAlongAdjustment * 1000, -1000, 1000, " мс", x => settings.ReadAlongAdjustment = x / 1000);
                 Hint(content, "Выключено по умолчанию. Если источник даёт только таймкоды строк, время слов рассчитывается приблизительно.");
+                Hint(content, island.ReadAlongTimingStatus);
                 Scale(content, "Сдвиг текста: плюс — раньше, минус — позже", settings.LyricsAdjustment * 10, -100, 100, " × 0,1 с", x => settings.LyricsAdjustment = x / 10);
                 Hint(content, "Сначала используется доступный текст Яндекс Музыки, затем LRCLIB и lrcmux. Во внешние источники передаются только данные песни. Аудио, пароли и токены не передаются.");
                 break;

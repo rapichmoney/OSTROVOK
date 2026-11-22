@@ -183,6 +183,8 @@ public partial class MainWindow
                 Check("settings use native minimize maximize and close controls", preferences!.WindowStyle == WindowStyle.SingleBorderWindow && preferences.ResizeMode == ResizeMode.CanResize);
                 Check("settings remain above their island owner", ReferenceEquals(preferences.Owner, this) && preferences.Topmost == Topmost);
                 Check("settings expose both native taskbar icon sizes", WindowBrand.NativeIconsPresent(preferences));
+                var nativeSettingsHandle = new System.Windows.Interop.WindowInteropHelper(preferences).Handle;
+                Check("taskbar uses an explicit window identity and icon independent of package cache", Services.TaskbarIdentity.Read(nativeSettingsHandle, 5) == Services.TaskbarIdentity.Id && Services.TaskbarIdentity.Read(nativeSettingsHandle, 3) == WindowBrand.TaskbarIconPath && File.Exists(WindowBrand.TaskbarIconPath));
                 var savedPaletteImage = paletteArtwork; bool savedPaletteActive = paletteActive;
                 var warmPaletteImage = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, new byte[] { 40, 80, 180, 255 }, 4);
                 UpdateArtworkMaterial(true, warmPaletteImage); UpdateLayout();

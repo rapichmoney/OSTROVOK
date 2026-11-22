@@ -24,6 +24,7 @@ public partial class MainWindow
     private bool lyricScrollPending;
     private bool lyricScrollImmediate;
     private bool lyricsLoading, lyricsPendingHadContent;
+    private double LyricPositionAdjustment => settings.LyricsAdjustment + (settings.ReadAlong ? settings.ReadAlongAdjustment : 0);
     private double lyricsPendingWidth;
 
     private void InitializeLyrics()
@@ -154,13 +155,19 @@ public partial class MainWindow
             Timeline.Value = Math.Min(Timeline.Maximum, position); Elapsed.Text = FormatTime(position);
         }
         if (lyricsResult?.Synced != true) return;
-        int index = LyricsService.LineAt(lyricsResult.Lines, position, settings.LyricsAdjustment);
+        int index = LyricsService.LineAt(lyricsResult.Lines, position, LyricPositionAdjustment);
         if (index == currentLyricIndex) { UpdateCompactLyricProgress(position, index); UpdateExpandedLyricProgress(position); return; }
         if (currentLyricIndex >= 0 && currentLyricIndex < lyricViews.Count)
         {
             lyricViews[currentLyricIndex].Foreground = new SolidColorBrush(Color.FromRgb(181, 189, 198)); lyricViews[currentLyricIndex].FontWeight = FontWeights.Normal;
             System.Windows.Automation.AutomationProperties.SetItemStatus(lyricViews[currentLyricIndex], "");
             var previousFill = lyricFills[currentLyricIndex];
+            if (settings.ReadAlong)
+            {
+                int read = index > currentLyricIndex ? lyricsResult.Lines[currentLyricIndex].Text.Length : 0;
+                previousFill.TimingFrame = new ReadAlongFrame(-1, 0, read, 0, previousFill.TimingFrame?.FromSource == true);
+                previousFill.WordPosition = -1;
+            }
             Motion.Tween(previousFill, OpacityProperty, 0, 620, completed: () => { if (lyricFills.IndexOf(previousFill) != currentLyricIndex) previousFill.Visibility = Visibility.Collapsed; });
         }
         currentLyricIndex = index;
@@ -183,7 +190,9 @@ public partial class MainWindow
         double end = line.EndSeconds ?? (currentLyricIndex + 1 < lyricsResult.Lines.Length ? lyricsResult.Lines[currentLyricIndex + 1].Seconds : media.Duration);
         lyricFills[currentLyricIndex].ReadAlong = settings.ReadAlong;
         double time = position + settings.LyricsAdjustment + (settings.ReadAlong ? settings.ReadAlongAdjustment : 0);
-        lyricFills[currentLyricIndex].WordPosition = time < line.Seconds ? -1 : LyricsService.WordCharacterAt(line, time);
+        var frame = ReadAlongTiming.At(line, end, time);
+        lyricFills[currentLyricIndex].TimingFrame = frame;
+        lyricFills[currentLyricIndex].WordPosition = frame.Position;
         lyricFills[currentLyricIndex].Progress = end > line.Seconds ? (time - line.Seconds) / (end - line.Seconds) : 1;
         if (settings.ReadAlong) LyricsStatus.ToolTip = lyricsResult.Status + (line.Words?.Length > 0 ? "\nRead Along: метки слов из источника" : "\nRead Along: приблизительно по таймкодам строки");
     }
@@ -208,7 +217,7 @@ public partial class MainWindow
     {
         manualLyricsScroll = false; FollowLyricsButton.Visibility = Visibility.Collapsed;
         if (!ReferenceEquals(expected, lyricsResult) || !CanSeekSelectedPlayer) return;
-        double position = Math.Clamp(line.Seconds - settings.LyricsAdjustment, 0, Math.Max(0, media.Duration));
+        double position = Math.Clamp(line.Seconds - LyricPositionAdjustment, 0, Math.Max(0, media.Duration));
         if (await SeekSelectedPlayerAsync(position))
         {
             await media.RefreshAsync(); UpdateLyricPosition(media.Position);

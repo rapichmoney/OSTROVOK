@@ -48,6 +48,17 @@ public partial class MainWindow
             currentLyricIndex = -1; UpdateLyricPosition(.3); AnimateExpansion(true); UpdateLayout(); await AwaitShellAsync();
             Check("Read Along renders in the real player viewport", MediaPanel.IsVisible && LyricsScroll.ActualHeight >= 140 && lyricFills[0].ActualWidth > 0 && lyricFills[0].IsVisible);
             Check("Read Along is applied to active line", lyricFills[0].ReadAlong);
+            Capture(Path.Combine(output, "read-along-word-before.png"));
+            var markerBefore = lyricFills[0].MarkerBounds;
+            UpdateExpandedLyricProgress(.9); Capture(Path.Combine(output, "read-along-word-start.png"));
+            Check("word transition first frame retains previous marker position", !markerBefore.IsEmpty && Math.Abs(lyricFills[0].MarkerBounds.Left - markerBefore.Left) < 1);
+            await Task.Delay(150); Capture(Path.Combine(output, "read-along-word-after.png"));
+            Check("source word transition reaches the next word", lyricFills[0].MarkerBounds.Left > markerBefore.Left + 2 && lyricFills[0].TimingFrame?.Start == 6);
+            settings.ReadAlongAdjustment = .4;
+            UpdateLyricPosition(2.8);
+            Check("word offset applies across line boundaries", currentLyricIndex == 1);
+            Check("outgoing line releases its active word during the line fade", lyricFills[0].TimingFrame is { Active: false } && lyricFills[0].TimingFrame!.ReadThrough == fixture.Lines[0].Text.Length);
+            settings.ReadAlongAdjustment = 0; UpdateLyricPosition(.3);
             lyricFills[0].Progress = .6; await Task.Delay(360); Capture(Path.Combine(output, "read-along.png"));
             settings.ReadAlong = false; foreach (var fill in lyricFills) fill.ReadAlong = false;
             Check("ordinary lyric highlight remains available", lyricFills.All(x => !x.ReadAlong));
@@ -92,6 +103,7 @@ public partial class MainWindow
             UpdateLyricPosition(.9); RefreshIdleContent(); UpdateCompactLyricProgress(.9, 0); await Task.Delay(400); UpdateLayout();
             Check("Read Along is rendered in compact island", compactReadAlong?.IsVisible == true && CompactTrack.Opacity == 0 && !CompactLyricFill.IsVisible);
             Check("compact Read Along follows source word timing", compactReadAlong?.WordPosition > 5);
+            Check("both player views resolve the same source word", compactReadAlong?.TimingFrame == ReadAlongTiming.At(fixture.Lines[0],3,.9));
             Capture(Path.Combine(output, "compact-read-along.png"));
             settings.ReadAlong = false; UpdateCompactLyricProgress(.9, 0);
             Check("disabling Read Along restores compact fill", compactReadAlong?.IsVisible == false && CompactTrack.Opacity == 1 && CompactLyricFill.IsVisible);

@@ -161,6 +161,7 @@ public sealed class LyricsService
         if (seconds < words[0].Seconds) return -1;
         var word = words.LastOrDefault(x => x.Seconds <= seconds);
         if (word == null) return -1;
+        if (word.EndSeconds is double end && seconds >= end || line.EndSeconds is double lineEnd && seconds >= lineEnd) return -1;
         return word.Start + Math.Max(0, word.Length - .001);
     }
     public static int LineAt(IReadOnlyList<LyricLine> lines, double position, double adjustment = 0)
