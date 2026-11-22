@@ -15,6 +15,7 @@ public sealed class SystemMonitor
     public double MemoryPercent { get; private set; }
     public ulong MemoryUsed { get; private set; }
     public ulong MemoryTotal { get; private set; }
+    public bool HasBattery { get; private set; }
     public string Battery { get; private set; } = "Нет данных";
     public string BatteryDetail { get; private set; } = "";
     public string Network { get; private set; } = "Нет соединения";
@@ -33,7 +34,8 @@ public sealed class SystemMonitor
         if (GlobalMemoryStatusEx(ref memory)) { MemoryTotal = memory.TotalPhysical; MemoryUsed = memory.TotalPhysical - memory.AvailablePhysical; MemoryPercent = memory.Load; }
         if (GetSystemPowerStatus(out var power))
         {
-            Battery = (power.Flag & 128) != 0 ? "От сети" : power.Percent <= 100 ? power.Percent + "%" : "Нет данных";
+            HasBattery = power.Flag != 255 && (power.Flag & 128) == 0;
+            Battery = !HasBattery ? "" : power.Percent <= 100 ? power.Percent + "%" : "Нет данных";
             BatteryDetail = (power.Flag & 128) != 0 ? "Батарея не установлена" : power.Ac == 1 ? "Питание от сети" : "Питание от батареи";
         }
         try

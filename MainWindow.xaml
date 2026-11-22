@@ -74,6 +74,7 @@
         <TextBlock x:Name="NoticeQueueCount" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="11" Foreground="{StaticResource Secondary}" IsHitTestVisible="False"/>
       </Grid>
       <Border x:Name="NoticeLifetime" Grid.Row="0" Height="2" Margin="24,0,24,0" VerticalAlignment="Bottom" Background="#61717F" Visibility="Collapsed" IsHitTestVisible="False" RenderTransformOrigin="0,0"><Border.RenderTransform><ScaleTransform x:Name="NoticeLifetimeScale"/></Border.RenderTransform></Border>
+      <TextBlock x:Name="GamepadChargeText" Grid.Row="3" Margin="12,2" Foreground="{StaticResource Secondary}" FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
       <Image x:Name="CompactSnapshot" Grid.Row="0" Visibility="Collapsed" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
       <Path x:Name="FlyingTelegramPlane" Grid.Row="0" Panel.ZIndex="20" Width="20" Height="20" Stretch="Uniform" StrokeThickness="1.4" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed" IsHitTestVisible="False"/>
       <Border x:Name="ClipboardNotice" Grid.Row="1" Background="#202A33" BorderBrush="#3D5262" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,8,4,0" Visibility="Collapsed">
@@ -576,11 +577,12 @@
       <Border x:Name="MoveHandle" Grid.Row="0" Height="12" VerticalAlignment="Top" Background="Transparent" Cursor="SizeAll" Visibility="Collapsed" MouseLeftButtonDown="MoveIsland" AutomationProperties.Name="Переместить остров">
         <Border Width="40" Height="3" Background="#777777" CornerRadius="1" VerticalAlignment="Center" HorizontalAlignment="Center"/>
       </Border>
+      <System:Thumb xmlns:System="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework" x:Name="ExpandedWidthHandle" Grid.RowSpan="4" Width="12" Margin="0,0,-12,0" HorizontalAlignment="Right" Cursor="SizeWE" Visibility="Collapsed" DragStarted="ResizeIslandStarted" DragDelta="ResizeExpandedWidth" DragCompleted="ResizeIslandCompleted" ToolTip="Потяните край, чтобы изменить ширину" AutomationProperties.Name="Изменить ширину раскрытого острова"><System:Thumb.Template><ControlTemplate TargetType="System:Thumb"><Border x:Name="Edge" Background="Transparent"/><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Edge" Property="Background" Value="#20FFFFFF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></System:Thumb.Template></System:Thumb>
       <System:Thumb xmlns:System="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework" x:Name="HeightHandle" Grid.RowSpan="4" Height="10" Margin="0,0,0,-4" VerticalAlignment="Bottom" Cursor="SizeNS" Visibility="Collapsed" DragStarted="ResizeIslandStarted" DragDelta="ResizeIslandDelta" DragCompleted="ResizeIslandCompleted" MouseDoubleClick="ResetIslandHeight" ToolTip="Потяните вниз, чтобы видеть больше строк. Двойной щелчок — вернуть высоту." AutomationProperties.Name="Изменить высоту острова">
         <System:Thumb.Template><ControlTemplate TargetType="System:Thumb"><Border Background="Transparent"><Border Width="40" Height="3" Background="#777777" CornerRadius="1" VerticalAlignment="Center" HorizontalAlignment="Center"/></Border></ControlTemplate></System:Thumb.Template>
       </System:Thumb>
     </Grid>
   </Border>
-  <Image x:Name="TrackVisualSnapshot" Visibility="Collapsed" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Top" IsHitTestVisible="False"/>
+  <Image Panel.ZIndex="50" x:Name="TrackVisualSnapshot" Visibility="Collapsed" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Top" IsHitTestVisible="False"/>
   </Grid>
 </Window>

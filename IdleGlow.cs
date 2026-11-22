@@ -20,7 +20,7 @@ public partial class MainWindow
     private void UpdateIdleGlow()
     {
         if (App.VerificationMode || !IsLoaded || handle == IntPtr.Zero) return;
-        bool visible = !closing && IsVisible && !expanded && !shellMoving && settings.IdleGlow;
+        bool visible = !closing && !hiding && Opacity > .99 && IsVisible && !expanded && !shellMoving && settings.IdleGlow;
         if (!visible) { idleGlow?.Hide(); return; }
         idleGlow ??= new IdleGlowWindow { Owner = this };
         idleGlow.Follow(this);

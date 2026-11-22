@@ -14,6 +14,8 @@ public partial class MainWindow
     {
         if (trackVisualPending && value != expanded) CancelTrackVisualHold();
         idleGlow?.Hide();
+        bool collapsing = !value && expanded;
+        CaptureCollapseFrame(collapsing);
         bool opening = value && !expanded;
         bool compactResize = !value && !expanded && Math.Abs(Height - CompactHeight) < 1 && !HasCompactNotification;
         var revision = ++shellRevision;
@@ -27,7 +29,7 @@ public partial class MainWindow
         if (value) StopCompactTransition();
         HeaderRow.Height = new GridLength(value ? 64 : HasCompactNotification ? 62 : 34);
         compactNoticeGeometryActive = HasCompactNotification;
-        MoveHandle.Visibility = HeightHandle.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        MoveHandle.Visibility = HeightHandle.Visibility = ExpandedWidthHandle.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         CompactLeftHandle.Visibility = CompactRightHandle.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
         UpdateClipboardNoticeVisibility(false);
         MaxHeight = area.Height;
@@ -35,7 +37,7 @@ public partial class MainWindow
         TopNavigation.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         ToolbarIndicatorLayer.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         if (value) Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(UpdateToolbar));
-        UpdateClock();
+        UpdateClock(); RefreshGamepad();
         var cornerFrom = Shell.CornerRadius;
         Shell.BeginAnimation(System.Windows.Controls.Border.CornerRadiusProperty, null);
         ApplyShellAppearance();
@@ -50,13 +52,14 @@ public partial class MainWindow
         {
             StopShellMotion();
             Width = targetWidth; Height = targetHeight; Left = targetLeft; Top = targetTop;
+            ClearCollapseFrame();
             Body.Visibility = Footer.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             Body.Opacity = Footer.Opacity = 1;
             return;
         }
         if (!shellMoving) CompositionTarget.Rendering += SyncAnimatedBounds;
         shellMoving = true;
-        Body.Width = 386; Body.Height = Math.Max(0, Math.Min(ExpandedHeight, area.Height) / (Math.Clamp(settings.ExpandedScale, 80, 150) / 100) - 104);
+        Body.Width = ExpandedBaseWidth - 54; Body.Height = Math.Max(0, Math.Min(ExpandedHeight, area.Height) / ExpandedUiScale - 104);
         Body.HorizontalAlignment = HorizontalAlignment.Left; Body.VerticalAlignment = VerticalAlignment.Top;
         if (value && Body.Visibility != Visibility.Visible)
         {
@@ -82,11 +85,13 @@ public partial class MainWindow
         Motion.Tween(this, WidthProperty, targetWidth, plan.Width.Duration, plan.Width.Delay, completed: plan.Width.End >= plan.Height.End ? complete : null, easingOverride: widthEase);
         Motion.Tween(this, HeightProperty, targetHeight, plan.Height.Duration, plan.Height.Delay, completed: plan.Height.End > plan.Width.End ? complete : null, easingOverride: heightEase);
         if (opening) Motion.RevealContent(Body, Math.Min(420, duration - 60), 60);
-        else Motion.Tween(Body, OpacityProperty, value ? 1 : 0, value ? 180 : 110);
+        else Motion.Tween(Body, OpacityProperty, value ? 1 : 0, value ? 180 : 200);
+        if (collapsing) { Motion.Enter(Header, 0, 220); }
         Motion.Tween(Footer, OpacityProperty, value ? 1 : 0, value ? 240 : 100, value ? 80 : 0);
     }
     private void FinishExpansionLayout(bool value)
     {
+        ClearCollapseFrame();
         Body.HorizontalAlignment = HorizontalAlignment.Stretch; Body.VerticalAlignment = VerticalAlignment.Stretch;
         Body.Visibility = Footer.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         Body.BeginAnimation(OpacityProperty, null); Footer.BeginAnimation(OpacityProperty, null);
@@ -127,8 +132,9 @@ public partial class MainWindow
     private void HideAnimated()
     {
         int revision = ++hideRevision;
+        hiding = true; idleGlow?.Hide(); ClearCollapseFrame();
         if (!Motion.Enabled || settings.HideStyle == "Без анимации") { hiding = false; Hide(); return; }
-        if (shellMoving) StopShellMotion(true);
+        if (shellMoving) StopShellMotion(false);
         StopPageTransition(); hiding = true; IsHitTestVisible = false;
         Motion.ClearContentMotion(Shell);
         var scale = new ScaleTransform(1, 1); var shift = new TranslateTransform(); var transforms = new TransformGroup(); transforms.Children.Add(scale); transforms.Children.Add(shift);

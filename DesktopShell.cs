@@ -25,9 +25,15 @@ public partial class MainWindow
     private bool compactMusicActive;
     private double CompactWidth => (settings.CompactWidthOverride > 0 ? Math.Clamp(settings.CompactWidthOverride, settings.MiniMode ? 100 : 220, 1600) : settings.MiniMode ? 100 : 318) * Math.Clamp(settings.CompactScale, 75, 150) / 100;
     private double CompactHeight => 44 * Math.Clamp(settings.CompactScale, 75, 150) / 100;
-    private double ExpandedWidth => 440 * Math.Clamp(settings.ExpandedScale, 80, 150) / 100;
+    private double ExpandedBaseWidth => settings.ExpandedWidthOverride > 0 ? Math.Clamp(settings.ExpandedWidthOverride, 440, 900) : 440;
+    private double ExpandedUiScale
+    {
+        get { var area = Services.WindowInterop.WorkArea(handle); return Services.DisplayLayout.Scale(Math.Clamp(settings.ExpandedScale, 80, 150) / 100, ExpandedBaseWidth, ExpandedBaseHeight, area.Width, area.Height); }
+    }
+    private double ExpandedWidth => ExpandedBaseWidth * ExpandedUiScale;
     private bool PlayerHasLyrics => lyricsLoading ? lyricsPendingHadContent : lyricsResult?.Synced == true || !string.IsNullOrWhiteSpace(lyricsResult?.PlainText);
-    private double ExpandedHeight => trackVisualPending && expanded && Navigation.SelectedIndex == 0 ? heldWindowHeight : (Navigation.SelectedIndex == 0 && media.Available ? PlayerHasLyrics ? settings.PlayerHeight > 0 ? Math.Clamp(settings.PlayerHeight, 480, 1600) : 480 : 432 : 30 + (Navigation.SelectedIndex == 5 && settings.CalendarView != "Месяц" ? settings.CalendarView == "Неделя" ? 390 : 330 : PageHeight(Navigation.SelectedIndex, media.Available))) * Math.Clamp(settings.ExpandedScale, 80, 150) / 100;
+    private double ExpandedBaseHeight => trackVisualPending && expanded && Navigation.SelectedIndex == 0 ? heldWindowHeight / Math.Max(.25, heldContentScale) : (Navigation.SelectedIndex == 0 && media.Available ? PlayerHasLyrics ? settings.PlayerHeight > 0 ? Math.Clamp(settings.PlayerHeight, 480, 1600) : 480 : 432 : 30 + (Navigation.SelectedIndex == 5 && settings.CalendarView != "Месяц" ? settings.CalendarView == "Неделя" ? 390 : 330 : PageHeight(Navigation.SelectedIndex, media.Available)));
+    private double ExpandedHeight => ExpandedBaseHeight * ExpandedUiScale;
     internal static double PageHeight(int page, bool playing) => page switch
     {
         0 => playing ? 450 : 156, 1 => 332, 2 => 350, 3 => 370, 4 => 350,
@@ -52,6 +58,7 @@ public partial class MainWindow
             var menu = new ContextMenu(); TrackIslandMenu(menu);
             foreach (var item in new[] { (1, "Полка файлов"), (3, "Заметки"), (4, "Задачи"), (5, "Календарь"), (10, "Погода"), (7, "Монитор"), (6, "Загрузки"), (8, "События") })
             {
+                if (!TabEnabled(item.Item1)) continue;
                 var action = new MenuItem { Header = item.Item2 }; int index = item.Item1;
                 action.Click += (_, _) => Navigation.SelectedIndex = index; menu.Items.Add(action);
             }
@@ -65,7 +72,7 @@ public partial class MainWindow
         DockPanel.SetDock(pin, Dock.Right); TopNavigation.Children.Add(pin);
         var gear = IconButton("Настройки", "M 9,2 L 15,2 L 16,6 L 20,8 L 23,12 L 20,16 L 16,18 L 15,22 L 9,22 L 8,18 L 4,16 L 1,12 L 4,8 L 8,6 Z M 12,8 A 4,4 0 1 0 12,16 A 4,4 0 1 0 12,8", false);
         gear.Click += (_, _) => TogglePreferences(); DockPanel.SetDock(gear, Dock.Right); TopNavigation.Children.Add(gear);
-        DockPanel.SetDock(more, Dock.Right); TopNavigation.Children.Add(more); UpdateToolbar();
+        DockPanel.SetDock(more, Dock.Right); TopNavigation.Children.Add(more); ApplyTabVisibility();
     }
     private static Button IconButton(string title, string geometry, bool showCaption = true, string? caption = null)
     {
@@ -123,7 +130,7 @@ public partial class MainWindow
     private void ApplyShellAppearance()
     {
         ApplyInterfaceFont();
-        double scale = Math.Clamp(expanded ? settings.ExpandedScale : settings.CompactScale, expanded ? 80 : 75, 150) / 100;
+        double scale = expanded ? ExpandedUiScale : Math.Clamp(settings.CompactScale, 75, 150) / 100;
         Shell.LayoutTransform = new ScaleTransform(scale, scale);
         bool docked = !settings.Detached && Top <= WindowInterop.WorkArea(handle).Top + 2;
         Shell.CornerRadius = docked ? new CornerRadius(0, 0, settings.Radius, settings.Radius) : new CornerRadius(expanded ? settings.Radius : 20);
@@ -170,8 +177,8 @@ public partial class MainWindow
         UpdateKeyboardIndicator(KeyboardStatus());
         KeyboardText.Visibility = settings.ShowKeyboard && !settings.MiniMode ? Visibility.Visible : Visibility.Collapsed;
         KeyboardBadge.Visibility = KeyboardText.Visibility;
-        Battery.Text = monitor.Battery == "От сети" ? DateTime.Now.ToString("ddd, d MMM", CultureInfo.GetCultureInfo("ru-RU")) : monitor.Battery;
-        IdleDateCaption.Text = monitor.Battery == "От сети" ? CultureInfo.GetCultureInfo("ru-RU").TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", CultureInfo.GetCultureInfo("ru-RU"))) : "Питание";
+        Battery.Text = !monitor.HasBattery ? DateTime.Now.ToString("ddd, d MMM", CultureInfo.GetCultureInfo("ru-RU")) : monitor.Battery;
+        IdleDateCaption.Text = !monitor.HasBattery ? CultureInfo.GetCultureInfo("ru-RU").TextInfo.ToTitleCase(DateTime.Now.ToString("dddd", CultureInfo.GetCultureInfo("ru-RU"))) : "Питание";
         Battery.Visibility = settings.ShowDateOrBattery && !settings.MiniMode ? Visibility.Visible : Visibility.Collapsed;
         IdleDateBadge.Visibility = Battery.Visibility;
         string compactText = compactMusicActive && !settings.MiniMode ? CompactTrackCaption : "";
@@ -230,6 +237,7 @@ public partial class MainWindow
         settings.CompactScale = Math.Clamp(settings.CompactScale, 75, 150); settings.ExpandedScale = Math.Clamp(settings.ExpandedScale, 80, 150); settings.Radius = Math.Clamp(settings.Radius, 0, 40);
         Pin.IsChecked = settings.Pinned; StayOnTop.IsChecked = settings.Topmost; HideFullscreen.IsChecked = settings.HideInFullscreen;
         LessMotion.IsChecked = settings.ReducedMotion; Motion.Reduced = settings.ReducedMotion;
+        ApplyTabVisibility();
         Topmost = settings.Topmost; ApplyShellAppearance(); RefreshIdleContent();
         foreach (var fill in lyricFills) fill.ReadAlong = settings.ReadAlong;
         RefreshTrackLyrics();

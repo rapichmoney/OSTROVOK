@@ -132,17 +132,18 @@ public partial class MainWindow : Window
         if (settings.Pinned) SetExpanded(true);
         if (settings.DownloadsEnabled) StartDownloads();
         RefreshSystem(); RefreshVolume(); UpdateClock(); RefreshIdleContent(); timer.Start();
-        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
+        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase-update")) await CaptureUpdateShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
             Reveal(); OpenPreferences(3);
             await ConnectTelegramNotificationsAsync();
             preferences?.SelectPage(3);
         }
-        else if (settings.TelegramNotificationsEnabled) await telegramNotifications.ConnectAsync(false);
+        else if (settings.TelegramNotificationsEnabled && !settings.AutoSetup) await telegramNotifications.ConnectAsync(false);
         await media.InitializeAsync(); UpdateMedia();
         await audio.RefreshDeviceNameAsync(); AudioDeviceText.Text = audio.DeviceName;
         await LoadWeatherAsync();
+        await AutoConnectAsync(false);
         AddActivity("Приложение запущено", "Музыка, файлы, заметки, задачи и календарь готовы.");
     }
 
@@ -174,7 +175,7 @@ public partial class MainWindow : Window
     private void UpdateClock() { UpdateIdleClockHands(DateTime.Now); Clock.Text = DateTime.Now.ToString("HH:mm"); HomeClock.Text = Clock.Text; HomeDate.Text = DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")); }
     private void RefreshSystem()
     {
-        monitor.Refresh(); Battery.Text = monitor.Battery; PowerText.Text = monitor.BatteryDetail;
+        monitor.Refresh(); RefreshGamepad(); Battery.Text = monitor.HasBattery ? monitor.Battery : DateTime.Now.ToString("ddd, d MMM", CultureInfo.GetCultureInfo("ru-RU")); PowerText.Text = monitor.BatteryDetail;
         CpuText.Text = $"{monitor.Cpu:0}%"; Motion.Progress(CpuBar, monitor.Cpu);
         MemoryText.Text = $"{DownloadEntry.FormatBytes(monitor.MemoryUsed)} / {DownloadEntry.FormatBytes(monitor.MemoryTotal)}"; Motion.Progress(MemoryBar, monitor.MemoryPercent);
         NetworkText.Text = monitor.Network; NetworkRate.Text = $"Приём {DownloadEntry.FormatBytes(monitor.ReceiveRate)}/с   ·   Отправка {DownloadEntry.FormatBytes(monitor.SendRate)}/с";
@@ -196,7 +197,7 @@ public partial class MainWindow : Window
         Top = Math.Clamp(Top, area.Top, Math.Max(area.Top, area.Bottom - Height));
         MaxHeight = area.Height;
     }
-    public void Reveal() { collapseUntilPointerLeaves = false; bool wasHidden = !IsVisible || hiding; ++hideRevision; hiding = false; BeginAnimation(OpacityProperty, null); BeginAnimation(TopProperty, null); Motion.ClearContentMotion(Shell); Opacity = 1; Show(); IsHitTestVisible = true; SelectOpeningTab(); SetExpanded(true); if (wasHidden) AnimateRevealShell(); Activate(); }
+    public void Reveal() { collapseUntilPointerLeaves = false; bool wasHidden = !IsVisible || hiding; ++hideRevision; hiding = false; BeginAnimation(OpacityProperty, null); BeginAnimation(TopProperty, null); Motion.ClearContentMotion(Shell); ClearCollapseFrame(); Opacity = 1; Show(); IsHitTestVisible = true; SelectOpeningTab(); SetExpanded(true); if (wasHidden) AnimateRevealShell(); Activate(); }
     private void SelectOpeningTab() { if (!expanded && (settings.OpeningTab == "Всегда первая вкладка" || settings.OpeningTab == "Плеер, если играет музыка" && media.Available)) Navigation.SelectedIndex = 0; }
     private void Expand(object sender, MouseEventArgs e) { if (suppressHover || collapseUntilPointerLeaves) return; leaveTimer.Stop(); if (!expanded && HasCompactNotification) { if (settings.HoldNoticesOnHover) PauseCompactNotificationTimers(); return; } if (!expanded && CompactEdgeAt(e.GetPosition(this).X)) return; if (!settings.ExpandOnClick && !draggingWindow) { SelectOpeningTab(); SetExpanded(true); } }
     private void Collapse(object sender, MouseEventArgs e) { collapseUntilPointerLeaves = false; if (suppressHover) return; if (!expanded && HasCompactNotification) { if (settings.HoldNoticesOnHover) ResumeCompactNotificationTimers(); return; } leaveTimer.Start(); }
@@ -227,6 +228,7 @@ public partial class MainWindow : Window
     {
         if (Navigation.SelectedIndex != 0) CancelTrackVisualHold();
         if (ContentTabs == null) return;
+        if (ready && !TabEnabled(Navigation.SelectedIndex)) { Navigation.SelectedIndex = 0; return; }
         int previousPage = ContentTabs.SelectedIndex;
         var outgoingPage = previousPage != Navigation.SelectedIndex ? CapturePageForTransition() : null;
         if (ready && Navigation.SelectedIndex == 9 && !App.VerificationMode) { Navigation.SelectedIndex = 0; OpenPreferences(); return; }
@@ -302,12 +304,12 @@ public partial class MainWindow : Window
     private void RefreshVolume()
     {
         audio.Refresh(); updatingVolume = true;
-        double playerVolume = IsYandexSelected ? yandexPlayback?.Volume ?? 0 : audio.Volume;
-        bool playerAvailable = IsYandexSelected ? yandexPlayback != null : audio.Available;
-        bool playerMuted = IsYandexSelected ? playerVolume <= .001 : audio.Muted;
+        double playerVolume = HasYandexVolume ? yandexPlayback!.Volume : audio.Volume;
+        bool playerAvailable = HasYandexVolume || audio.Available;
+        bool playerMuted = HasYandexVolume ? playerVolume <= .001 : audio.Muted;
         if (!writingYandexVolume) Volume.Value = playerVolume * 100;
         Volume.IsEnabled = playerAvailable; MuteButton.IsEnabled = playerAvailable;
-        Volume.ToolTip = IsYandexSelected ? yandexPlayback == null ? "Восстанавливается связь с Яндекс Музыкой. Повторные попытки выполняются автоматически." : "Громкость Яндекс Музыки" : "Громкость системы";
+        Volume.ToolTip = HasYandexVolume ? "Громкость Яндекс Музыки" : IsYandexSelected ? "Системная громкость. Прямое подключение Яндекс Музыки восстанавливается автоматически." : "Громкость системы";
         VolumeText.ToolTip = Volume.ToolTip;
         IdleVolume.Value = audio.Volume * 100; IdleVolume.IsEnabled = audio.Available; IdleVolumeText.Text = $"{audio.Volume * 100:0}%";
         VolumeText.Text = playerAvailable ? $"{playerVolume * 100:0}%" : IsYandexSelected ? "Нет связи" : "Нет устройства";
@@ -318,12 +320,12 @@ public partial class MainWindow : Window
     private void VolumeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!ready || updatingVolume) return;
-        if (ReferenceEquals(sender, Volume) && IsYandexSelected) { QueueYandexVolume(e.NewValue / 100); VolumeText.Text = $"{e.NewValue:0}%"; return; }
+        if (ReferenceEquals(sender, Volume) && HasYandexVolume) { QueueYandexVolume(e.NewValue / 100); VolumeText.Text = $"{e.NewValue:0}%"; return; }
         if (!audio.SetVolume((float)(e.NewValue / 100))) Status.Text = "Не удалось изменить громкость: " + audio.Error;
         updatingVolume = true; IdleVolume.Value = e.NewValue; if (!IsYandexSelected) Volume.Value = e.NewValue; updatingVolume = false;
         IdleVolumeText.Text = $"{e.NewValue:0}%"; if (!IsYandexSelected) VolumeText.Text = IdleVolumeText.Text;
     }
-    private void ToggleMute(object sender, RoutedEventArgs e) { if (IsYandexSelected) { QueueYandexVolume((yandexPlayback?.Volume ?? 0) > .001 ? 0 : lastYandexVolume); return; } if (!audio.SetMuted(!audio.Muted)) Status.Text = audio.Error; RefreshVolume(); }
+    private void ToggleMute(object sender, RoutedEventArgs e) { if (HasYandexVolume) { QueueYandexVolume((yandexPlayback?.Volume ?? 0) > .001 ? 0 : lastYandexVolume); return; } if (!audio.SetMuted(!audio.Muted)) Status.Text = audio.Error; RefreshVolume(); }
 
     private void ReceiveFiles(object sender, DragEventArgs e)
     {
@@ -452,6 +454,7 @@ public partial class MainWindow : Window
 
     private IntPtr WindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message is 0x007E or 0x02E0) Dispatcher.BeginInvoke(new Action(() => { if (closing) return; StopShellMotion(true); ApplyShellAppearance(); AnimateExpansion(expanded); ClampToMonitor(); }));
         if (message == WindowInterop.ClipboardMessage && settings.ClipboardEnabled && !App.VerificationMode) _ = ReadClipboardAsync();
         if (message == WindowInterop.HotkeyMessage && wParam.ToInt32() == WindowInterop.HotkeyId) { if (IsVisible && !hiding) HideAnimated(); else Reveal(); handled = true; }
         return IntPtr.Zero;

@@ -23,7 +23,7 @@ public partial class App : System.Windows.Application
             SelfTestMode = true;
             Shutdown(await SelfTests.RunAsync(e.Args)); return;
         }
-        VerificationMode = e.Args.Contains("--verify-motion") || e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");
+        VerificationMode = e.Args.Contains("--showcase-update") || e.Args.Contains("--verify-motion") || e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");
         if (!VerificationMode)
         {
             instance = new Mutex(true, "Local\\DesktopIsland-" + Environment.UserName, out bool first);

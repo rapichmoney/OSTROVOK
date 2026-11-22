@@ -1,5 +1,5 @@
 (() => {
-  if (window.__islandYandex?.version === 9 && window.__islandYandex.refresh()) return true;
+  if (window.__islandYandex?.version === 10 && window.__islandYandex.refresh()) return true;
   function findModels() {
     const candidates = [...document.querySelectorAll('input[type="range"],button[data-test-id="LIKE_BUTTON"],button[data-test-id="PLAY_BUTTON"]'), ...document.querySelectorAll('button,main,section,[data-test-id]')].slice(0, 400);
     const seen = new Set();
@@ -21,11 +21,22 @@
   const pending = new Map(), delivered = new Map();
   const metadataOf = meta => meta?.id ? ({ id: String(meta.realId || meta.id).split(':')[0], title: meta.title || '', artist: (meta.artists || []).map(a => a.name).filter(Boolean).join(', '), duration: Number(meta.durationMs || 0) / 1000, hasLyrics: !!meta.hasLyrics, hasSyncLyrics: !!meta.hasSyncLyrics }) : null;
   const adapter = {
-    version: 9, get models() { return models; }, syncFactory: null, warmId: '', warmAt: 0, warmJob: null,
+    version: 10, get models() { return models; }, syncFactory: null, warmId: '', warmAt: 0, warmJob: null,
     refresh() { const fresh = findModels(); if (!fresh) return false; models = fresh; return true; },
     ratingButton(kind) {
       const buttons = Array.from(document.querySelectorAll('button[data-test-id="' + (kind === 'like' ? 'LIKE_BUTTON' : 'DISLIKE_BUTTON') + '"]'));
-      return buttons.find(e => e.closest('[class*="PlayerBar"]')) || (buttons.length === 1 ? buttons[0] : null);
+      // Never use an album/artist/playlist rating as a substitute for the current track.
+      const enabled = buttons.filter(e => !e.disabled && e.getAttribute('aria-disabled') !== 'true');
+      const player = enabled.find(e => e.closest('[class*="PlayerBar"],[data-test-id="PLAYER_BAR"],[class*="FullscreenPlayer"]'));
+      if (player) return player;
+      const transport = enabled.filter(e => {
+        let parent = e.parentElement;
+        for (let depth = 0; parent && depth < 5; depth++, parent = parent.parentElement)
+          if (parent.querySelector?.('button[data-test-id="PLAY_BUTTON"],button[data-test-id="PAUSE_BUTTON"]')
+              && parent.querySelector?.('input[type="range"]')) return true;
+        return false;
+      });
+      return transport.find(e => !!e.getClientRects?.().length) || transport[0] || (buttons.length === 1 ? buttons[0] : null);
     },
     playback() {
       this.refresh();

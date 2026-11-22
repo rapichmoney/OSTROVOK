@@ -16,6 +16,16 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            foreach (var display in new[] {(W:1280d,H:680d),(W:800d,H:560d),(W:640d,H:440d),(W:1920d,H:1040d)})
+            {
+                double fit = DisplayLayout.Scale(1.5, 440, 740, display.W, display.H);
+                Check("content fits small display " + display.W, 440*fit <= display.W && 740*fit <= display.H);
+            }
+            Check("hidden tabs cannot remove player or settings", DisplayLayout.NormalizeHidden([0,9,3,3,-1,10,44]).SequenceEqual(new[] {3,10}));
+            Check("gamepad wired connection never invents a percent", GamepadBattery.Describe(1,3) == "По USB");
+            Check("gamepad levels describe reported battery", GamepadBattery.Describe(2,1) == "Низкий заряд");
+            Check("unknown gamepad charge is explicit", GamepadBattery.Describe(255,0) == "Заряд не передаётся");
+
             Check("Read Along is off by default", !new AppSettings().ReadAlong);
             store.Save("read-along.json", new AppSettings { ReadAlong = true });
             Check("Read Along preference survives restart", store.Load("read-along.json", () => new AppSettings()).ReadAlong);

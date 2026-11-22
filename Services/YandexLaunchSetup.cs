@@ -4,10 +4,24 @@ namespace DesktopIsland.Services;
 
 internal static class YandexLaunchSetup
 {
+    internal static string? PlayerPath()
+    {
+        try
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcesses().Where(x => x.ProcessName.Equals("Яндекс Музыка", StringComparison.OrdinalIgnoreCase) || x.ProcessName.Equals("YandexMusic", StringComparison.OrdinalIgnoreCase)))
+                using (process) { try { var path = process.MainModule?.FileName; if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path; } catch (System.ComponentModel.Win32Exception) { } }
+        }
+        catch (InvalidOperationException) { }
+        return new[] {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "YandexMusic", "Яндекс Музыка.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "YandexMusic", "Яндекс Музыка.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "YandexMusic", "Яндекс Музыка.exe")
+        }.FirstOrDefault(File.Exists);
+    }
     internal static int Install()
     {
-        string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "YandexMusic", "Яндекс Музыка.exe");
-        if (!File.Exists(exe)) return 0;
+        string? exe = PlayerPath();
+        if (exe == null) return 0;
         string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         string programs = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
         string pinned = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Microsoft", "Internet Explorer", "Quick Launch", "User Pinned", "TaskBar");

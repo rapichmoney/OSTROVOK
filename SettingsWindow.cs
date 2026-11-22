@@ -31,6 +31,8 @@ internal sealed class SettingsWindow : Window
         Icon = MainWindow.BrandIcon;
         preview = new IslandMotionPreview(previewClock);
         Title = "Настройки Desktop Island"; Width = 860; Height = 680; MinWidth = 720; MinHeight = 520;
+        var work = Services.WindowInterop.WorkArea(new System.Windows.Interop.WindowInteropHelper(island).Handle);
+        Width = Math.Min(Width, work.Width); Height = Math.Min(Height, work.Height); MinWidth = Math.Min(MinWidth, work.Width); MinHeight = Math.Min(MinHeight, work.Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen; Background = new SolidColorBrush(Color.FromRgb(20, 22, 25));
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResizeWithGrip;
         System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, GlassFrameThickness = new Thickness(0), ResizeBorderThickness = new Thickness(6), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
@@ -52,7 +54,7 @@ internal sealed class SettingsWindow : Window
         var footer = new TextBlock { Text = "Изменения сохраняются\nна этом компьютере", Foreground = (Brush)FindResource("Muted"), FontSize = 12, Margin = new Thickness(20, 12, 12, 20) };
         footer.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         DockPanel.SetDock(footer, Dock.Bottom); sidebar.Children.Add(footer);
-        foreach (var title in new[] { "Остров", "Внешний вид", "Погода", "Данные", "Система", "Музыка" }) navigation.Items.Add(title);
+        foreach (var title in new[] { "Остров", "Внешний вид", "Погода", "Данные", "Система", "Музыка", "Вкладки" }) navigation.Items.Add(title);
         navigation.Margin = new Thickness(10, 0, 10, 0); navigation.SelectionChanged += (_, _) => BuildPage(); sidebar.Children.Add(navigation); root.Children.Add(sidebar);
         var scroll = new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(32, 24, 24, 24) };
         pageScroll = scroll;
@@ -102,7 +104,7 @@ internal sealed class SettingsWindow : Window
         Resources["SliderRim"] = new SolidColorBrush(contrast.Rim);
     }
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-    internal void SelectPage(int index) { int target = Math.Clamp(index, 0, 5); if (navigation.SelectedIndex == target) BuildPage(); else navigation.SelectedIndex = target; }
+    internal void SelectPage(int index) { int target = Math.Clamp(index, 0, 6); if (navigation.SelectedIndex == target) BuildPage(); else navigation.SelectedIndex = target; }
     private void Changed() { if (!initialized) return; commit.Stop(); commit.Start(); UpdatePreview(); }
     private void UpdatePreview() { preview.Configure(settings.AnimationStyle, settings.Radius, settings.AnimationSpeed, settings.SpringStrength); previewClock.Text = DateTime.Now.ToString("HH:mm    d MMMM"); }
     private void BuildPage()
@@ -165,6 +167,17 @@ internal sealed class SettingsWindow : Window
                 Scale(content, "Сдвиг текста: плюс — раньше, минус — позже", settings.LyricsAdjustment * 10, -100, 100, " × 0,1 с", x => settings.LyricsAdjustment = x / 10);
                 Hint(content, "Сначала используется доступный текст Яндекс Музыки, затем LRCLIB и lrcmux. Во внешние источники передаются только данные песни. Аудио, пароли и токены не передаются.");
                 break;
+            case 6:
+                Section(content, "Разделы острова");
+                Hint(content, "Скрытие убирает вкладку и её пункт меню. Файлы и заметки сохраняются. Плеер и настройки доступны всегда.");
+                foreach (var tab in MainWindow.CustomTabs)
+                {
+                    int id = tab.Id;
+                    Toggle(content, tab.Title, !settings.HiddenTabs.Contains(id), enabled =>
+                    { settings.HiddenTabs = Services.DisplayLayout.NormalizeHidden(enabled ? settings.HiddenTabs.Where(x => x != id) : settings.HiddenTabs.Append(id)); });
+                }
+                Action(content, "Показать все вкладки", () => { settings.HiddenTabs = []; Changed(); BuildPage(); });
+                break;
             case 2: WeatherPage(content); break;
             case 3:
                 Section(content, "Уведомления Telegram");
@@ -201,6 +214,12 @@ internal sealed class SettingsWindow : Window
                 discordStatus = new TextBlock { Text = island.DiscordPresenceStatus, Foreground = (Brush)FindResource("Secondary"), TextWrapping = TextWrapping.Wrap };
                 content.Children.Add(discordStatus);
                 Hint(content, "Нужен запущенный Discord. Буфер обмена, заметки и уведомления в статус не передаются.");
+                Section(content, "Подключения");
+                Toggle(content, "Автоматически проверять подключения", settings.AutoSetup, x => settings.AutoSetup = x);
+                Hint(content, island.ConnectionSummary);
+                Action(content, "Проверить подключения", async () => { await island.AutoConnectAsync(true); BuildPage(); });
+                Toggle(content, "Заряд геймпада", settings.ShowGamepadBattery, x => settings.ShowGamepadBattery = x);
+                Hint(content, "Поддерживаются XInput-геймпады. Windows передаёт уровень заряда, а не точный процент; USB-устройства могут не передавать заряд.");
                 Section(content, "Запуск");
                 Toggle(content, "Запускать при входе в Windows", island.AutostartEnabled, island.SetAutostart);
                 Section(content, "Версия"); Hint(content, "OSTROVOK " + typeof(App).Assembly.GetName().Version!.ToString(3) + " · Windows x64");

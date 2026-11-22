@@ -140,9 +140,9 @@ public sealed class YandexLyricsBridge
     {
         YandexLaunchSetup.Install();
         try { using var existing = await ConnectAsync(CancellationToken.None); if (existing != null) return Status = "Подключено к Яндекс Музыке"; } catch (Exception) { }
-        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "YandexMusic", "Яндекс Музыка.exe");
-        if (!File.Exists(path)) return Status = "Яндекс Музыка не найдена в стандартной папке установки";
-        var running = Process.GetProcesses().Where(p => p.ProcessName == "Яндекс Музыка").ToArray();
+        string? path = YandexLaunchSetup.PlayerPath();
+        if (path == null) return Status = "Яндекс Музыка не найдена. Запустите её и повторите подключение.";
+        var running = Process.GetProcesses().Where(p => p.ProcessName == "Яндекс Музыка" || p.ProcessName == "YandexMusic").ToArray();
         var main = running.FirstOrDefault(p => p.MainWindowHandle != IntPtr.Zero);
         if (running.Length > 0 && main == null) return Status = "Откройте окно Яндекс Музыки и повторите подключение";
         if (main != null)

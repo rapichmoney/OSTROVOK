@@ -39,7 +39,10 @@ public sealed class AudioService
         try
         {
             enumerator = Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"))!);
-            Marshal.ThrowExceptionForHR(((IMMDeviceEnumerator)enumerator!).GetDefaultAudioEndpoint(0, 1, out var output)); device = output;
+            var devices = (IMMDeviceEnumerator)enumerator!;
+            int status = devices.GetDefaultAudioEndpoint(0, 1, out var output);
+            if (status < 0) status = devices.GetDefaultAudioEndpoint(0, 0, out output);
+            Marshal.ThrowExceptionForHR(status); device = output;
             var iid = typeof(IAudioEndpointVolume).GUID;
             Marshal.ThrowExceptionForHR(output.Activate(ref iid, 23, IntPtr.Zero, out endpoint));
             action((IAudioEndpointVolume)endpoint); Available = true; Error = ""; return true;

@@ -242,7 +242,11 @@ public partial class MainWindow
     {
         settings.YandexLyricsEnabled = true; SaveSettings();
         string status = await yandexLyrics.ConnectPlayerAsync();
-        await media.InitializeAsync(); await media.RefreshAsync(); RefreshTrackLyrics(true);
-        return status;
+        await media.InitializeAsync(); await media.RefreshAsync();
+        yandexPlayback = await yandexLyrics.PlaybackAsync();
+        if (yandexPlayback != null) { yandexStateAt = Environment.TickCount64; media.UpdateNativePlayback(yandexPlayback); UpdateMedia(); }
+        RefreshVolume(); UpdateYandexRating(); RefreshTrackLyrics(true);
+        if (yandexPlayback == null) return status + " Ожидаем доступ к управлению; повторные проверки выполняются автоматически.";
+        return yandexPlayback.CanLike && yandexPlayback.CanDislike ? "Подключено: звук, перемотка, лайк и дизлайк доступны." : "Плеер подключён. Кнопки оценки пока недоступны: включите обычный трек и откройте панель управления Яндекс Музыки.";
     }
 }

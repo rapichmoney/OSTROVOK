@@ -24,14 +24,14 @@ public partial class MainWindow
         ToolbarIndicator.Background = new SolidColorBrush(Color.FromRgb((byte)(palette.Top.R * .7 + 255 * .12), (byte)(palette.Top.G * .7 + 255 * .12), (byte)(palette.Top.B * .7 + 255 * .12)));
         ToolbarIndicator.BorderBrush = new SolidColorBrush(Color.FromArgb(90, palette.Rim.R, palette.Rim.G, palette.Rim.B));
         double selectedWidth = 26;
-        foreach (var (index, item) in toolbar)
+        foreach (var (index, item) in toolbar.Where(x => TabEnabled(x.Key)))
         {
             var label = item.Label; var button = item.Button;
             if (index == selected) label.Visibility = Visibility.Visible;
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             double width = index == selected ? 26 + 8 + label.DesiredSize.Width : 26;
             if (index == selected) selectedWidth = width;
-            if (toolbar.Keys.TakeWhile(x => x != selected).Contains(index)) targetX += width;
+            if (toolbar.Keys.Where(TabEnabled).TakeWhile(x => x != selected).Contains(index)) targetX += width;
             button.HorizontalContentAlignment = HorizontalAlignment.Left; button.ClipToBounds = true;
             button.BorderThickness = new Thickness(0); button.Background = Brushes.Transparent;
             Motion.RefreshButtonBackground(button);

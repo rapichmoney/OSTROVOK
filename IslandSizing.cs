@@ -65,12 +65,20 @@ public partial class MainWindow
     private void ResizeIslandBy(double delta)
     {
         var area = WindowInterop.WorkArea(handle);
-        double scale = Math.Clamp(settings.ExpandedScale, 80, 150) / 100;
+        double scale = ExpandedUiScale;
         double maximum = Math.Max(1, area.Bottom - Top);
         Height = Math.Clamp(Height + delta, Math.Min(480 * scale, maximum), maximum);
         if (Navigation.SelectedIndex == 0 && media.Available) settings.PlayerHeight = Height / scale;
     }
 
+    private void ResizeExpandedWidth(object sender, DragDeltaEventArgs e)
+    {
+        var area = WindowInterop.WorkArea(handle);
+        double scale = ExpandedUiScale;
+        double desired = Math.Clamp((Width + e.HorizontalChange) / scale, 440, 900);
+        settings.ExpandedWidthOverride = desired;
+        ApplyShellAppearance(); Width = Math.Min(ExpandedWidth, area.Right - Left);
+    }
     private void ResizeIslandCompleted(object sender, DragCompletedEventArgs e)
     {
         draggingWindow = false; SaveSettings();

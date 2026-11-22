@@ -8,7 +8,7 @@ public partial class MainWindow
 {
     private bool trackVisualPending, trackCommitQueued;
     private string pendingVisualKey = "", lyricsReadyVisualKey = "";
-    private double heldWindowWidth, heldWindowHeight;
+    private double heldWindowWidth, heldWindowHeight, heldContentScale = 1;
     private int trackVisualRevision;
     private string CurrentVisualKey => media.Source + "\n" + media.Title + "\n" + media.Artist;
     private void BeginTrackVisualHold(string key, bool verification = false)
@@ -16,7 +16,7 @@ public partial class MainWindow
         if ((!verification && App.VerificationMode) || !IsLoaded || HasCompactNotification || Shell.ActualWidth < 1 || Shell.ActualHeight < 1) return;
         if (!trackVisualPending)
         {
-            heldWindowWidth = Width; heldWindowHeight = Height;
+            heldWindowWidth = Width; heldWindowHeight = Height; heldContentScale = ExpandedUiScale;
         }
         ++trackVisualRevision; trackCommitQueued = false;
         trackVisualPending = true; pendingVisualKey = key; lyricsReadyVisualKey = "";

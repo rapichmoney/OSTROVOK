@@ -116,3 +116,10 @@ assert.equal(wordLine.words[1].seconds, 4.2);
 assert.equal(wordLine.words[1].start, 4);
 assert.equal(window.__islandYandex.timedLine({fromSec: 1, toSec: 6, text: 'plain line'}).words, undefined);
 console.log('Word timing: native boundaries preserved; plain lines do not invent words.');
+
+const album = {disabled:false,getAttribute:()=>null,closest:()=>null,parentElement:null};
+const nativeTrack = {disabled:false,getAttribute:()=>null,closest:()=>null,getClientRects:()=>[{}],parentElement:{querySelector:()=>({}),parentElement:null}};
+const ratingContext = {document:{querySelectorAll:()=>[album,nativeTrack]}};
+vm.runInNewContext('globalThis.pick = '+window.__islandYandex.ratingButton.toString().replace(/^ratingButton/, 'function'),ratingContext);
+assert.equal(ratingContext.pick('like'),nativeTrack);
+console.log('Ratings recovery: transport buttons are selected without relying on hashed CSS names.');

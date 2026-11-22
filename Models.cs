@@ -60,6 +60,11 @@ public sealed class AppSettings
     public string CalendarView { get; set; } = "День";
     public bool LyricsEnabled { get; set; } = true;
     public bool LyricsOnCompact { get; set; } = true;
+    public int[] HiddenTabs { get; set; } = [];
+    public bool AutoSetup { get; set; } = true;
+    public int SetupVersion { get; set; }
+    public bool ShowGamepadBattery { get; set; } = true;
+    public double ExpandedWidthOverride { get; set; }
     public bool ReadAlong { get; set; }
     public double ReadAlongAdjustment { get; set; }
     public double LyricsAdjustment { get; set; }

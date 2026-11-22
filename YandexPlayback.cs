@@ -7,6 +7,7 @@ public partial class MainWindow
     private double? pendingYandexVolume;
     private double lastYandexVolume = .5;
     private long yandexStateAt, yandexCommandRevision;
+    private bool HasYandexVolume => IsYandexSelected && yandexPlayback != null && Environment.TickCount64 - yandexStateAt < 8000;
     private bool IsYandexSelected => media.Source == "ru.yandex.desktop.music";
     private bool CanSeekSelectedPlayer => media.CanSeek || IsYandexSelected && yandexPlayback != null;
 
@@ -56,6 +57,11 @@ public partial class MainWindow
         if (likeBrush.Color != likeColor) PolishedMotion.Color(likeBrush, likeColor, 300);
         YandexDislikeIcon.Fill = (System.Windows.Media.Brush)FindResource(disliked ? "Ink" : "Secondary");
         YandexLikeButton.ToolTip = liked ? "Убрать из «Мне нравится»" : "Нравится — добавить в «Мне нравится»";
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(YandexLikeButton, true);
+        System.Windows.Controls.ToolTipService.SetShowOnDisabled(YandexDislikeButton, true);
+        string unavailable = yandexPlayback == null ? "Нет прямого подключения. Настройки → Музыка → Подключить Яндекс Музыку." : "Панель Яндекс Музыки не разрешает оценку этого трека.";
+        if (!ratingYandex && yandexPlayback?.CanLike != true) YandexLikeButton.ToolTip = unavailable;
+        if (!ratingYandex && yandexPlayback?.CanDislike != true) YandexDislikeButton.ToolTip = unavailable;
         System.Windows.Automation.AutomationProperties.SetItemStatus(YandexLikeButton, liked ? "Нравится" : "Без оценки");
         System.Windows.Automation.AutomationProperties.SetItemStatus(YandexDislikeButton, disliked ? "Не нравится" : "Без оценки");
     }
@@ -97,7 +103,13 @@ public partial class MainWindow
             {
                 pendingYandexVolume = null;
                 var state = await yandexLyrics.PlaybackAsync("volume", next);
-                if (state == null) { Status.Text = "Восстанавливается связь с Яндекс Музыкой…"; break; }
+                if (state == null)
+                {
+                    yandexPlayback = null;
+                    if (audio.SetVolume((float)next)) Status.Text = "Используется системная громкость. Прямое подключение Яндекс Музыки восстанавливается.";
+                    else Status.Text = "Нет доступа к звуку: проверьте устройство вывода Windows.";
+                    break;
+                }
                 yandexPlayback = state;
                 if (state.Volume > .001) lastYandexVolume = state.Volume;
             }
