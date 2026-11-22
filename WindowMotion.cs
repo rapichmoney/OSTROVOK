@@ -84,6 +84,9 @@ public partial class MainWindow
             Width = targetWidth; Height = targetHeight; Left = targetLeft; Top = targetTop;
             Services.WindowInterop.SetAnimatedBounds(handle, Left, Top, targetWidth, targetHeight, VisualTreeHelper.GetDpi(this));
             FinishExpansionLayout(value);
+            // A pause, notification, or new caption can change compact dimensions
+            // while the outgoing panel is still moving. Complete that resize next.
+            if (!value) UpdateCompactNotification(true);
         };
         Motion.Tween(this, LeftProperty, targetLeft, plan.Width.Duration, plan.Width.Delay, easingOverride: widthEase);
         Motion.Tween(this, TopProperty, targetTop, plan.Height.Duration, plan.Height.Delay, easingOverride: new CubicEase { EasingMode = EasingMode.EaseOut });
@@ -182,6 +185,7 @@ public partial class MainWindow
     {
         settings.ReducedMotion = LessMotion.IsChecked == true;
         Motion.Reduced = settings.ReducedMotion;
+        WeatherScene.RefreshMotion();
         if (!Motion.Enabled)
         {
             StopPageTransition();

@@ -128,7 +128,7 @@
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="112"/>
                       <ColumnDefinition/>
-                    <ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    </Grid.ColumnDefinitions>
                     <Border Width="96" Height="96" Background="#252930" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center">
                       <Grid x:Name="ArtworkViewport" Width="96" Height="96" ClipToBounds="True">
                         <Grid.Clip>
@@ -139,10 +139,10 @@
                       </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="Сейчас играет" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,8"/><TextBlock x:Name="TrackTitle" Text="Ничего не играет" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="58"/>
+                      <TextBlock x:Name="TrackTitle" Text="Ничего не играет" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="58"/>
                       <TextBlock x:Name="TrackArtist" Text="Откройте музыку или видео в плеере" Style="{StaticResource MutedText}" Margin="0,8,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                  <Button x:Name="PlayerOptionsButton" Style="{StaticResource QuietButton}" Click="OpenPlayerOptions" Margin="8,0,0,0" ToolTip="Выбор плеера и параметры звука" Grid.Column="2" VerticalAlignment="Top" Width="34" Height="32" Padding="8" AutomationProperties.Name="Параметры плеера"><Path Data="M 3,8 L 3,8.2 M 8,8 L 8,8.2 M 13,8 L 13,8.2" Stroke="#929AA5" StrokeThickness="2.5" StrokeStartLineCap="Round" Width="16" Height="16"/></Button></Grid>
+                  </Grid>
                   <Slider x:Name="Timeline" Minimum="0" Maximum="1" IsMoveToPointEnabled="True" Margin="0,16,0,0"  ValueChanged="PreviewSeekTime" AutomationProperties.AutomationId="Timeline"/>
                   <DockPanel>
                     <TextBlock x:Name="Elapsed" Text="0:00" Style="{StaticResource MutedText}"/>
@@ -176,7 +176,7 @@
                     
                     
                     
-                    <Button x:Name="LyricsMenuButton" DockPanel.Dock="Right" Content="Параметры" Style="{StaticResource QuietButton}" Padding="8,4" Click="OpenLyricsMenu"/><Button x:Name="FollowLyricsButton" DockPanel.Dock="Right" Content="К текущей строке" Visibility="Collapsed" Style="{StaticResource QuietButton}" Padding="8,4" Click="ResumeLyricsFollow"/><TextBlock x:Name="LyricsStatus" Text="Текст песни появится при воспроизведении" Foreground="{StaticResource Secondary}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <Button x:Name="FollowLyricsButton" DockPanel.Dock="Right" Content="К текущей строке" Visibility="Collapsed" Style="{StaticResource QuietButton}" Padding="8,4" Click="ResumeLyricsFollow"/><TextBlock x:Name="LyricsStatus" Text="Текст песни появится при воспроизведении" Foreground="{StaticResource Secondary}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
                   </DockPanel>
                   <ScrollViewer x:Name="LyricsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel x:Name="LyricsLines" Margin="0,4,10,18"/>
@@ -524,10 +524,21 @@
               <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,8">
                 <Button Content="По часам" Click="WeatherHours" Padding="10,6"/>
                 <Button Content="На неделю" Click="WeatherDays" Padding="10,6" Margin="6,0,0,0"/>
-                <Button Content="Город" Click="OpenWeatherSettings" Padding="10,6" Margin="6,0,0,0"/>
+                <Button Content="Города" Click="OpenWeatherSettings" Padding="10,6" Margin="6,0,0,0"/>
                 <Button Content="Обновить" Click="RefreshWeather" Padding="10,6" Margin="6,0,0,0"/>
               </StackPanel>
               <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                <ItemsControl x:Name="SavedWeatherList" Margin="0,0,0,8">
+                  <ItemsControl.ItemTemplate><DataTemplate>
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,8" ToolTip="{Binding Detail}">
+                      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel><TextBlock Text="{Binding Name}" FontWeight="SemiBold"/><TextBlock Text="{Binding Priority}" FontSize="10" Foreground="{StaticResource Secondary}"/></StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <ItemsControl x:Name="ForecastList">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -536,16 +547,20 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,12" Margin="0,0,6,6" Height="128">
-                        <StackPanel>
+                      <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="10,10" Margin="0,0,6,6" Height="156">
+                        <Grid>
+                        <local:WeatherScene Code="{Binding Code}" Height="48" VerticalAlignment="Bottom"/>
+                        <StackPanel VerticalAlignment="Top">
                           <TextBlock Text="{Binding Label}" Foreground="{StaticResource Secondary}" FontSize="11"/>
                           <TextBlock Text="{Binding Value}" FontSize="21" Margin="0,8,0,8"/>
                           <TextBlock Text="{Binding Description}" FontSize="12" LineHeight="16" Foreground="{StaticResource Secondary}" TextWrapping="Wrap"/>
                         </StackPanel>
+                        </Grid>
                       </Border>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </StackPanel>
               </ScrollViewer>
               <TextBlock x:Name="WeatherStatus" Grid.Row="3" Text="Прогноз Open-Meteo. Город задаётся в настройках." FontSize="10" Foreground="{StaticResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
             </Grid>

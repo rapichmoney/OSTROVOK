@@ -11,6 +11,7 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        WindowBrand.InitializeProcess();
         if (e.Args.Contains("--repair-yandex"))
         {
             int count = Services.YandexLaunchSetup.Install();
@@ -23,7 +24,7 @@ public partial class App : System.Windows.Application
             SelfTestMode = true;
             Shutdown(await SelfTests.RunAsync(e.Args)); return;
         }
-        VerificationMode = e.Args.Contains("--showcase-update") || e.Args.Contains("--verify-motion") || e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");
+        VerificationMode = e.Args.Contains("--showcase-weather") || e.Args.Contains("--showcase-update") || e.Args.Contains("--verify-motion") || e.Args.Contains("--verify-ui") || e.Args.Contains("--showcase");
         if (!VerificationMode)
         {
             instance = new Mutex(true, "Local\\DesktopIsland-" + Environment.UserName, out bool first);

@@ -167,7 +167,7 @@ public partial class MainWindow
             {
                 settings.AnimationStyle = style;
                 SetExpanded(false); await AwaitShellAsync();
-                Check("animation collapses safely: " + style, Math.Abs(Width - CompactPresentationWidth) < .1 && Math.Abs(Height - CompactHeight) < .1 && !shellMoving);
+                Check("animation collapses safely: " + style, Math.Abs(Width - CompactPresentationWidth) < .1 && Math.Abs(Height - CompactHeight) < .1 && !shellMoving, $"size={Width:0.###}x{Height:0.###}, target={CompactPresentationWidth:0.###}x{CompactHeight:0.###}, moving={shellMoving}, expanded={expanded}");
                 SetExpanded(true); await AwaitShellAsync();
                 Check("animation expands safely: " + style, Math.Abs(Width - ExpandedWidth) < .1 && Math.Abs(Height - ExpandedHeight) < .1 && !shellMoving);
             }
@@ -180,11 +180,14 @@ public partial class MainWindow
             {
                 CaptureVisual(settingsVisual, Path.Combine(output, "settings-window.png"));
                 Check("settings use island colors instead of a fixed background", preferences!.Background is LinearGradientBrush);
-                var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(preferences!);
-                Check("settings remove native caption and glass strip while retaining resize border", chrome?.CaptionHeight == 0 && chrome.GlassFrameThickness == new Thickness(0) && chrome.ResizeBorderThickness.Left > 0);
+                Check("settings use native minimize maximize and close controls", preferences!.WindowStyle == WindowStyle.SingleBorderWindow && preferences.ResizeMode == ResizeMode.CanResize);
+                Check("settings remain above their island owner", ReferenceEquals(preferences.Owner, this) && preferences.Topmost == Topmost);
+                Check("settings expose both native taskbar icon sizes", WindowBrand.NativeIconsPresent(preferences));
                 var savedPaletteImage = paletteArtwork; bool savedPaletteActive = paletteActive;
                 var warmPaletteImage = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, new byte[] { 40, 80, 180, 255 }, 4);
                 UpdateArtworkMaterial(true, warmPaletteImage); UpdateLayout();
+                Check("settings palette keeps animated brushes instead of replacing them", preferences!.Background is LinearGradientBrush transitionTheme && transitionTheme.GradientStops[0].HasAnimatedProperties);
+                await Task.Delay(480);
                 Check("open settings follow artwork palette changes", preferences!.Background is LinearGradientBrush liveTheme && liveTheme.GradientStops[0].Color.R > liveTheme.GradientStops[0].Color.B && preferences.Resources["ControlSurface"] is SolidColorBrush controlTheme && controlTheme.Color.R > controlTheme.Color.B);
                 CaptureVisual(settingsVisual, Path.Combine(output, "settings-artwork-theme.png"));
                 UpdateArtworkMaterial(savedPaletteActive, savedPaletteImage);
@@ -207,14 +210,40 @@ public partial class MainWindow
                     toggle.IsChecked = wasChecked;
                 }
             }
-            preferences?.SelectPage(2); await Task.Delay(250);
+            var cityFixtures = new[] { new Services.WeatherLocation("Орёл", "Орловская область", "Россия", 52.97, 36.07), new Services.WeatherLocation("Москва", "Москва", "Россия", 55.75, 37.62), new Services.WeatherLocation("Санкт-Петербург", "", "Россия", 59.94, 30.31) };
+            foreach (var city in cityFixtures)
+            {
+                await AddWeatherCityAsync(city);
+                weatherSnapshots[city] = new Services.WeatherSnapshot(city.Name, DateTime.Now, 4, 2, 3, 70, 2, 6, 0, [], []);
+            }
+            RenderWeatherState(); RenderSavedWeatherCities();
+            preferences?.SelectPage(2); await Task.Delay(450);
+            Check("weather page shows summaries for all saved cities", SavedWeatherList.Items.Count == 3);
+            if (preferences?.Content is FrameworkElement citySettingsVisual)
+            {
+                var up = VisualDescendants<System.Windows.Controls.Button>(citySettingsVisual).FirstOrDefault(x => System.Windows.Automation.AutomationProperties.GetName(x) == "Выше: Санкт-Петербург");
+                up?.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); await Task.Delay(50);
+                Check("weather reorder control updates the persisted city order", settings.WeatherLocations[1].Name == "Санкт-Петербург");
+                up = VisualDescendants<System.Windows.Controls.Button>(citySettingsVisual).FirstOrDefault(x => System.Windows.Automation.AutomationProperties.GetName(x) == "Выше: Санкт-Петербург");
+                up?.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); await Task.Delay(50);
+                Check("first city supplies island weather", settings.WeatherLocation == cityFixtures[2] && forecast?.City == "Санкт-Петербург");
+                await MoveWeatherCityAsync(cityFixtures[2], 1); await MoveWeatherCityAsync(cityFixtures[2], 1);
+            }
             if (preferences?.Content is FrameworkElement weatherSettings) CaptureVisual(weatherSettings, Path.Combine(output, "weather-settings.png"));
+            await VerifyWeatherScenesAsync(Check, output);
+            preferences?.SelectPage(5); await Task.Delay(450);
+            if (preferences?.Content is FrameworkElement musicSettings)
+            {
+                var actions = VisualDescendants<System.Windows.Controls.Button>(musicSettings).Select(x => x.Content?.ToString()).ToArray();
+                Check("lyrics actions are available only in music settings", actions.Contains("Искать текст текущей песни заново") && actions.Contains("Открыть файл LRC для текущей песни"));
+                CaptureVisual(musicSettings, Path.Combine(output, "music-settings.png"));
+            }
             preferences?.Close();
             TogglePreferences();
             Check("settings button opens preferences", preferences?.IsVisible == true);
             TogglePreferences();
             Check("settings button closes preferences on second press", preferences == null);
-            var moreButton = TopNavigation.Children.OfType<System.Windows.Controls.Button>().Single(x => System.Windows.Automation.AutomationProperties.GetName(x) == "Другие разделы");
+            var moreButton = TopNavigation.Children.OfType<System.Windows.Controls.Button>().Single(x => System.Windows.Automation.AutomationProperties.GetName(x) == "Разделы");
             moreButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent)); await Task.Delay(150);
             var moreMenu = moreButton.ContextMenu;
             Pin.IsChecked = false;
@@ -272,12 +301,12 @@ public partial class MainWindow
             typeof(Services.MediaService).GetProperty(nameof(media.Source))!.SetValue(media, "other-player"); UpdateYandexRating();
             Check("Yandex ratings hidden for other players", YandexLikeButton.Visibility == Visibility.Collapsed && YandexDislikeButton.Visibility == Visibility.Collapsed);
             typeof(Services.MediaService).GetProperty(nameof(media.Source))!.SetValue(media, savedSource); yandexPlayback = savedPlayback; UpdateYandexRating();
-            LyricsMenuButton.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent });
+            MuteButton.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent });
             await Task.Delay(170);
-            Check("quiet action hover stays translucent instead of turning white", LyricsMenuButton.Template.FindName("Frame", LyricsMenuButton) is System.Windows.Controls.Border quietFrame && quietFrame.Background is SolidColorBrush quietBrush && quietBrush.Color.A <= 32);
-            LyricsMenuButton.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent });
+            Check("quiet action hover stays translucent instead of turning white", MuteButton.Template.FindName("Frame", MuteButton) is System.Windows.Controls.Border quietFrame && quietFrame.Background is SolidColorBrush quietBrush && quietBrush.Color.A <= 32);
+            MuteButton.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent });
             var artworkBounds = ArtworkViewport.TransformToAncestor(MediaPanel).TransformBounds(new Rect(ArtworkViewport.RenderSize));
-            Check("technical source selector is hidden while player options remain accessible", !Players.IsVisible && PlayerOptionsButton.IsVisible && artworkBounds.Top >= 0);
+            Check("player has no secondary settings menus or repeated lyric label", !Players.IsVisible && !LyricsStatus.IsVisible && artworkBounds.Top >= 0);
             foreach (var size in new[] { (Width: 480, Height: 120), (Width: 120, Height: 480) })
             {
                 var pixels = new byte[size.Width * size.Height * 4];

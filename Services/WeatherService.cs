@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace DesktopIsland.Services;
 
-public sealed record WeatherPoint(string Label, double Temperature, string Description, double? Low = null)
+public sealed record WeatherPoint(string Label, double Temperature, string Description, double? Low = null, int Code = -1)
 {
     public string Value => Low.HasValue ? $"{Temperature:0}° / {Low:0}°" : $"{Temperature:0}°";
 }
@@ -37,11 +37,12 @@ public sealed class WeatherService
         var hours = new List<WeatherPoint>(); var days = new List<WeatherPoint>();
         var hourTimes = hourly.GetProperty("time").EnumerateArray().Select(x => DateTime.Parse(x.GetString()!, CultureInfo.InvariantCulture)).ToArray();
         for (int i = 0; i < hourTimes.Length; i++)
-            if (hourTimes[i] >= now.AddHours(-1) && hours.Count < 24) hours.Add(new WeatherPoint(hourTimes[i].ToString("HH:mm"), hourly.GetProperty("temperature_2m")[i].GetDouble(), Describe(hourly.GetProperty("weather_code")[i].GetInt32())));
+            if (hourTimes[i] >= now.AddHours(-1) && hours.Count < 24) { int code = hourly.GetProperty("weather_code")[i].GetInt32(); hours.Add(new WeatherPoint(hourTimes[i].ToString("HH:mm"), hourly.GetProperty("temperature_2m")[i].GetDouble(), Describe(code), Code: code)); }
         int index = 0;
         foreach (var date in daily.GetProperty("time").EnumerateArray())
         {
-            days.Add(new WeatherPoint(DateTime.Parse(date.GetString()!, CultureInfo.InvariantCulture).ToString("ddd, dd.MM"), daily.GetProperty("temperature_2m_max")[index].GetDouble(), Describe(daily.GetProperty("weather_code")[index].GetInt32()), daily.GetProperty("temperature_2m_min")[index].GetDouble())); index++;
+            int code = daily.GetProperty("weather_code")[index].GetInt32();
+            days.Add(new WeatherPoint(DateTime.Parse(date.GetString()!, CultureInfo.InvariantCulture).ToString("ddd, dd.MM"), daily.GetProperty("temperature_2m_max")[index].GetDouble(), Describe(code), daily.GetProperty("temperature_2m_min")[index].GetDouble(), code)); index++;
         }
         return new WeatherSnapshot(city, DateTime.Now, current.GetProperty("temperature_2m").GetDouble(), current.GetProperty("apparent_temperature").GetDouble(), current.GetProperty("wind_speed_10m").GetDouble(), current.GetProperty("relative_humidity_2m").GetInt32(), current.GetProperty("weather_code").GetInt32(), days[0].Temperature, days[0].Low ?? 0, hours.ToArray(), days.ToArray());
     }

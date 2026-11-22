@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         store.Error += message => AddActivity("Хранилище", message);
         downloads.Activity += (title, detail) => AddActivity(title, detail, true);
         settings = store.Load("settings.json", () => new AppSettings());
+        WeatherCityList.Normalize(settings);
         if (!App.VerificationMode && settings.ClipboardFeatureVersion < 1) { settings.ClipboardEnabled = true; settings.ClipboardFeatureVersion = 1; }
         Motion.Reduced = settings.ReducedMotion; LessMotion.IsChecked = settings.ReducedMotion;
         Notes.Text = store.LoadText("notes.txt");
@@ -132,7 +133,7 @@ public partial class MainWindow : Window
         if (settings.Pinned) SetExpanded(true);
         if (settings.DownloadsEnabled) StartDownloads();
         RefreshSystem(); RefreshVolume(); UpdateClock(); RefreshIdleContent(); timer.Start();
-        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase-update")) await CaptureUpdateShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
+        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase-weather")) await CaptureWeatherShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase-update")) await CaptureUpdateShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
             Reveal(); OpenPreferences(3);
@@ -142,7 +143,7 @@ public partial class MainWindow : Window
         else if (settings.TelegramNotificationsEnabled && !settings.AutoSetup) await telegramNotifications.ConnectAsync(false);
         await media.InitializeAsync(); UpdateMedia();
         await audio.RefreshDeviceNameAsync(); AudioDeviceText.Text = audio.DeviceName;
-        await LoadWeatherAsync();
+        _ = LoadWeatherAsync();
         await AutoConnectAsync(false);
         if (Environment.GetCommandLineArgs().Contains("--updated"))
         {

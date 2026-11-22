@@ -81,10 +81,10 @@ public partial class MainWindow
             if (!result.Synced && settings.YandexLyricsEnabled && media.Source == "ru.yandex.desktop.music")
                 _ = UpgradeYandexLyricsAsync(track, revision, token);
         }
-        catch (OperationCanceledException) { if (!token.IsCancellationRequested && revision == lyricsRevision && !closing) ShowLyrics(null, "Сервис текста не ответил вовремя. Нажмите «Искать заново»."); }
+        catch (OperationCanceledException) { if (!token.IsCancellationRequested && revision == lyricsRevision && !closing) ShowLyrics(null, "Сервис текста не ответил. Повторите поиск в настройках музыки."); }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
         {
-            if (revision == lyricsRevision && !closing && !token.IsCancellationRequested) ShowLyrics(null, "Не удалось получить текст. Нажмите «Искать заново».");
+            if (revision == lyricsRevision && !closing && !token.IsCancellationRequested) ShowLyrics(null, "Не удалось получить текст. Повторите поиск в настройках музыки.");
         }
     }
     private async Task UpgradeYandexLyricsAsync(LyricTrack track, int revision, CancellationToken token)
@@ -119,7 +119,7 @@ public partial class MainWindow
         LyricMotion.Stop(LyricsScroll);
         lyricsResult = result; currentLyricIndex = -1; lyricViews.Clear(); lyricFills.Clear(); LyricsLines.Children.Clear();
         LyricsStatus.Text = result?.Synced == true ? "Текст песни" : !string.IsNullOrWhiteSpace(result?.PlainText) ? "Текст без таймкодов" : result != null ? "Текст песни не найден" : status.StartsWith("Не удалось", StringComparison.Ordinal) ? "Текст песни недоступен" : status;
-        LyricsMenuButton.Content = PlayerHasLyrics ? "Параметры" : "Найти текст";
+        LyricsStatus.Visibility = PlayerHasLyrics ? Visibility.Collapsed : Visibility.Visible;
         LyricsStatus.ToolTip = status;
         if (result?.Synced == true)
         {

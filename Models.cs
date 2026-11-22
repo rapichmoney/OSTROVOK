@@ -56,6 +56,7 @@ public sealed class AppSettings
     public string HideStyle { get; set; } = "Капля вверх";
     public string WeatherCity { get; set; } = "";
     public DesktopIsland.Services.WeatherLocation? WeatherLocation { get; set; }
+    public List<DesktopIsland.Services.WeatherLocation> WeatherLocations { get; set; } = [];
     public int LastTab { get; set; }
     public string CalendarView { get; set; } = "День";
     public bool LyricsEnabled { get; set; } = true;

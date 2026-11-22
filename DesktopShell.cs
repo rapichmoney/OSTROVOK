@@ -15,7 +15,6 @@ public partial class MainWindow
     private SettingsWindow? preferences;
     private bool draggingWindow;
     private bool weatherBusy;
-    private DateTime weatherAttempt;
     private readonly WeatherService weatherService = new();
     private WeatherSnapshot? forecast;
     private bool forecastDays;
@@ -51,7 +50,7 @@ public partial class MainWindow
         AddTab(10, "Погода", "M 6,18 C 0,18 0,10 6,10 C 7,2 17,2 18,10 C 25,10 25,18 18,18 Z");
         AddTab(8, "События", "M 12,2 A 10,10 0 1 0 12,22 A 10,10 0 1 0 12,2 M 7,9 L 17,9 M 7,14 L 14,14");
         AddTab(7, "Монитор", "M 2,3 L 22,3 L 22,19 L 2,19 Z M 8,22 L 16,22 M 5,13 L 8,13 L 10,7 L 14,16 L 16,11 L 19,11");
-        var more = IconButton("Другие разделы", "M 4,12 L 5,12 M 11,12 L 12,12 M 18,12 L 19,12", false);
+        var more = IconButton("Разделы", "M 3,3 L 9,3 L 9,9 L 3,9 Z M 15,3 L 21,3 L 21,9 L 15,9 Z M 3,15 L 9,15 L 9,21 L 3,21 Z M 15,15 L 21,15 L 21,21 L 15,21 Z", false);
         sectionsButton = more; sectionsLabel = null;
         more.Click += (_, _) =>
         {
@@ -71,8 +70,29 @@ public partial class MainWindow
         pin.Click += (_, _) => { Pin.IsChecked = Pin.IsChecked != true; settings.Pinned = Pin.IsChecked == true; SaveSettings(); };
         DockPanel.SetDock(pin, Dock.Right); TopNavigation.Children.Add(pin);
         var gear = IconButton("Настройки", "M 9,2 L 15,2 L 16,6 L 20,8 L 23,12 L 20,16 L 16,18 L 15,22 L 9,22 L 8,18 L 4,16 L 1,12 L 4,8 L 8,6 Z M 12,8 A 4,4 0 1 0 12,16 A 4,4 0 1 0 12,8", false);
+        if (gear.Content is System.Windows.Shapes.Path cog)
+        { cog.Data = SettingsGear(); cog.Width = cog.Height = 16; cog.StrokeThickness = 1.6; }
+        System.Windows.Automation.AutomationProperties.SetAutomationId(gear, "OpenSettings");
         gear.Click += (_, _) => TogglePreferences(); DockPanel.SetDock(gear, Dock.Right); TopNavigation.Children.Add(gear);
         DockPanel.SetDock(more, Dock.Right); TopNavigation.Children.Add(more); ApplyTabVisibility();
+    }
+    private static Geometry SettingsGear()
+    {
+        var outline = new StreamGeometry();
+        using (var drawing = outline.Open())
+        {
+            for (int tooth = 0; tooth < 8; tooth++)
+                for (int edge = 0; edge < 4; edge++)
+                {
+                    double angle = (tooth * 45 + new[] { -16d, -10, 10, 16 }[edge]) * Math.PI / 180;
+                    double radius = edge is 0 or 3 ? 7.2 : 10;
+                    var point = new Point(12 + Math.Cos(angle) * radius, 12 + Math.Sin(angle) * radius);
+                    if (tooth == 0 && edge == 0) drawing.BeginFigure(point, false, true);
+                    else drawing.LineTo(point, true, false);
+                }
+        }
+        var geometry = new GeometryGroup(); geometry.Children.Add(outline);
+        geometry.Children.Add(new EllipseGeometry(new Point(12, 12), 3.1, 3.1)); geometry.Freeze(); return geometry;
     }
     private static Button IconButton(string title, string geometry, bool showCaption = true, string? caption = null)
     {
@@ -224,11 +244,15 @@ public partial class MainWindow
     private void OpenPreferences(int page = 0)
     {
         if (preferences == null) { preferences = new SettingsWindow(this, settings); preferences.Closed += (_, _) => preferences = null; }
+        preferences.Topmost = Topmost;
+        if (preferences.WindowState == WindowState.Minimized) preferences.WindowState = WindowState.Normal;
         preferences.Show(); preferences.SelectPage(page); preferences.Activate();
+        idleGlow?.Hide();
     }
+    internal void RefreshSettingsLayer() => UpdateIdleGlow();
     private void TogglePreferences()
     {
-        if (preferences?.IsVisible == true) preferences.Close(); else OpenPreferences();
+        if (preferences?.IsVisible == true && preferences.WindowState != WindowState.Minimized) preferences.Close(); else OpenPreferences();
     }
     internal void ApplyPreferences()
     {
@@ -237,8 +261,9 @@ public partial class MainWindow
         settings.CompactScale = Math.Clamp(settings.CompactScale, 75, 150); settings.ExpandedScale = Math.Clamp(settings.ExpandedScale, 80, 150); settings.Radius = Math.Clamp(settings.Radius, 0, 40);
         Pin.IsChecked = settings.Pinned; StayOnTop.IsChecked = settings.Topmost; HideFullscreen.IsChecked = settings.HideInFullscreen;
         LessMotion.IsChecked = settings.ReducedMotion; Motion.Reduced = settings.ReducedMotion;
+        WeatherScene.RefreshMotion();
         ApplyTabVisibility();
-        Topmost = settings.Topmost; ApplyShellAppearance(); RefreshIdleContent();
+        Topmost = settings.Topmost; if (preferences != null) preferences.Topmost = Topmost; ApplyShellAppearance(); RefreshIdleContent();
         foreach (var fill in lyricFills) fill.ReadAlong = settings.ReadAlong;
         RefreshTrackLyrics();
         StopShellMotion(); AnimateExpansion(expanded); SaveSettings();
@@ -253,7 +278,7 @@ public partial class MainWindow
     internal void ChooseDownloads() => ChooseDownloadFolder(this, new RoutedEventArgs());
     internal void ShowDataFolder() => OpenDataFolder(this, new RoutedEventArgs());
     internal void PreviewIsland() { Reveal(); Navigation.SelectedIndex = 0; }
-    internal void ShowWeatherPage() { Reveal(); Navigation.SelectedIndex = 10; }
+    internal void ShowWeatherPage() { preferences?.Hide(); Reveal(); Navigation.SelectedIndex = 10; }
 
     private void AddShelfLink(object sender, RoutedEventArgs e)
     {
@@ -272,29 +297,18 @@ public partial class MainWindow
     private void OpenWeatherSettings(object sender, RoutedEventArgs e) => OpenPreferences(2);
     private void WeatherHours(object sender, RoutedEventArgs e) { forecastDays = false; RenderForecast(); }
     private void WeatherDays(object sender, RoutedEventArgs e) { forecastDays = true; RenderForecast(); }
-    private void RenderForecast() { ForecastList.ItemsSource = forecast == null ? null : forecastDays ? forecast.Days : forecast.Hours; Motion.Enter(ForecastList, 5); }
+    private void RenderForecast()
+    {
+        var points = forecast == null ? null : forecastDays ? forecast.Days : forecast.Hours;
+        if (ReferenceEquals(ForecastList.ItemsSource, points)) return;
+        ForecastList.ItemsSource = points; Motion.Enter(ForecastList, 5);
+    }
     internal async Task SetWeatherLocationAsync(WeatherLocation location)
     {
-        settings.WeatherLocation = location; settings.WeatherCity = location.Name; SaveSettings(); await LoadWeatherAsync(true);
+        await AddWeatherCityAsync(location);
     }
     private async Task LoadWeatherAsync(bool force = false)
     {
-        if (weatherBusy || settings.WeatherLocation == null || (!force && DateTime.Now - weatherAttempt < TimeSpan.FromMinutes(30))) return;
-        weatherBusy = true; weatherAttempt = DateTime.Now; WeatherStatus.Text = "Запрашивается прогноз…";
-        try
-        {
-            forecast = await weatherService.FetchAsync(settings.WeatherLocation);
-            WeatherTemperature.Text = $"{forecast.Temperature:0}°"; WeatherDescription.Text = WeatherService.Describe(forecast.Code);
-            WeatherCityLabel.Text = forecast.City; WeatherFeels.Text = $"Ощущается как {forecast.FeelsLike:0}°";
-            WeatherHiLo.Text = $"Макс. {forecast.High:0}° · мин. {forecast.Low:0}°";
-            WeatherWind.Text = $"Ветер {forecast.Wind:0.#} м/с"; WeatherHumidity.Text = $"Влажность {forecast.Humidity}%";
-            WeatherStatus.Text = $"Open-Meteo · обновлено в {forecast.RetrievedAt:HH:mm}";
-            RenderForecast(); RefreshIdleContent();
-        }
-        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException or FormatException)
-        {
-            WeatherStatus.Text = "Не удалось обновить прогноз: " + ex.Message + (forecast != null ? $" · последние данные {forecast.RetrievedAt:dd.MM HH:mm}" : "");
-        }
-        finally { weatherBusy = false; }
+        await LoadSavedWeatherAsync(force);
     }
 }

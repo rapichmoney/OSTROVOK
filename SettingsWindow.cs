@@ -1,12 +1,13 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using DesktopIsland.Services;
 
 namespace DesktopIsland;
 
-internal sealed class SettingsWindow : Window
+internal sealed partial class SettingsWindow : Window
 {
     private readonly MainWindow island;
     private readonly AppSettings settings;
@@ -20,28 +21,32 @@ internal sealed class SettingsWindow : Window
     private bool initialized;
     private TextBlock? discordStatus;
     private readonly DockPanel sidebar;
-    private readonly DockPanel titlebar;
     private readonly Border windowFrame;
+    private readonly WindowBrand nativeBrand;
     private string paletteSignature = "";
+    private readonly SolidColorBrush captionBrush = new();
+    private readonly Dictionary<DependencyObject, int> colorRevisions = new();
     internal static readonly string[] AnimationStyles = ["Капля", "Пружина", "Плавно", "Волна", "Желе", "Тянучка", "Мяч", "Резинка", "Щелчок", "Пузырь"];
 
     public SettingsWindow(MainWindow island, AppSettings settings)
     {
         this.island = island; this.settings = settings;
         Icon = MainWindow.BrandIcon;
+        nativeBrand = new WindowBrand(this);
         preview = new IslandMotionPreview(previewClock);
         Title = "Настройки Desktop Island"; Width = 860; Height = 680; MinWidth = 720; MinHeight = 520;
         var work = Services.WindowInterop.WorkArea(new System.Windows.Interop.WindowInteropHelper(island).Handle);
         Width = Math.Min(Width, work.Width); Height = Math.Min(Height, work.Height); MinWidth = Math.Min(MinWidth, work.Width); MinHeight = Math.Min(MinHeight, work.Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen; Background = new SolidColorBrush(Color.FromRgb(20, 22, 25));
-        WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResizeWithGrip;
-        System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome { CaptionHeight = 0, GlassFrameThickness = new Thickness(0), ResizeBorderThickness = new Thickness(6), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
+        Owner = island; Topmost = island.Topmost;
+        WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
         SourceInitialized += (_, _) =>
         {
             var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
             int dark = 1, border = unchecked((int)0xFFFFFFFE);
             DwmSetWindowAttribute(hwnd, 20, ref dark, sizeof(int));
             DwmSetWindowAttribute(hwnd, 34, ref border, sizeof(int));
+            ApplyNativeCaptionPalette();
         };
         Foreground = Brushes.White; FontFamily = new FontFamily("Segoe UI");
         var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) }); root.ColumnDefinitions.Add(new ColumnDefinition());
@@ -60,19 +65,25 @@ internal sealed class SettingsWindow : Window
         pageScroll = scroll;
         scroll.Resources[SystemParameters.VerticalScrollBarWidthKey] = 10d;
         Grid.SetColumn(scroll, 1); root.Children.Add(scroll);
-        var frame = new DockPanel(); titlebar = new DockPanel { Height = 42, LastChildFill = true };
-        titlebar.MouseLeftButtonDown += (_, args) => { if (args.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; else DragMove(); };
-        var close = new Button { Content = "Закрыть", Margin = new Thickness(4), Padding = new Thickness(10, 4, 10, 4) }; close.Click += (_, _) => Close(); DockPanel.SetDock(close, Dock.Right); titlebar.Children.Add(close);
-        var minimize = new Button { Content = "Свернуть", Margin = new Thickness(4), Padding = new Thickness(10, 4, 10, 4) }; minimize.Click += (_, _) => WindowState = WindowState.Minimized; DockPanel.SetDock(minimize, Dock.Right); titlebar.Children.Add(minimize);
-        var titleLabel = new TextBlock { Text = "Настройки Desktop Island", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(18, 0, 0, 0) };
-        titleLabel.SetResourceReference(TextBlock.ForegroundProperty, "Secondary"); titlebar.Children.Add(titleLabel);
-        DockPanel.SetDock(titlebar, Dock.Top); frame.Children.Add(titlebar); frame.Children.Add(root);
-        windowFrame = new Border { BorderThickness = new Thickness(1), Child = frame }; Content = windowFrame;
+        windowFrame = new Border { BorderThickness = new Thickness(1), Child = root }; Content = windowFrame;
+        captionBrush.Changed += (_, _) => ApplyNativeCaptionPalette();
         ApplyIslandPalette();
         commit.Tick += (_, _) => { commit.Stop(); island.ApplyPreferences(); };
         clockTimer.Tick += (_, _) => { previewClock.Text = DateTime.Now.ToString("HH:mm    d MMMM"); if (discordStatus != null) discordStatus.Text = island.DiscordPresenceStatus; }; clockTimer.Start();
-        Closed += (_, _) => { commit.Stop(); clockTimer.Stop(); island.ApplyPreferences(); };
+        island.WeatherCitiesUpdated += RefreshWeatherCities;
+        StateChanged += (_, _) => island.RefreshSettingsLayer();
+        Closed += (_, _) => { island.WeatherCitiesUpdated -= RefreshWeatherCities; commit.Stop(); clockTimer.Stop(); island.ApplyPreferences(); };
         initialized = true; SelectPage(0);
+    }
+    private void ApplyNativeCaptionPalette()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        var color = captionBrush.Color;
+        int caption = color.R | color.G << 8 | color.B << 16;
+        int ink = 0xF1F1F1;
+        DwmSetWindowAttribute(hwnd, 35, ref caption, sizeof(int));
+        DwmSetWindowAttribute(hwnd, 36, ref ink, sizeof(int));
     }
     internal void ApplyIslandPalette()
     {
@@ -83,25 +94,41 @@ internal sealed class SettingsWindow : Window
         paletteSignature = signature;
         static Color Mix(Color a, Color b, double fraction) => Color.FromRgb((byte)(a.R * (1 - fraction) + b.R * fraction), (byte)(a.G * (1 - fraction) + b.G * fraction), (byte)(a.B * (1 - fraction) + b.B * fraction));
         Color top = Mix(palette.Top, palette.Bottom, .18);
-        var background = new LinearGradientBrush(top, palette.Bottom, new Point(0, 0), new Point(0, 1));
-        Background = windowFrame.Background = background;
-        titlebar.Background = new SolidColorBrush(top);
-        sidebar.Background = new SolidColorBrush(Mix(palette.Top, palette.Bottom, .35));
-        windowFrame.BorderBrush = new SolidColorBrush(palette.Rim);
-        Resources["ControlSurface"] = new SolidColorBrush(Mix(palette.Top, palette.Bottom, .45));
-        Resources["SelectionSurface"] = new SolidColorBrush(Mix(palette.Top, Colors.White, .16));
-        Resources["HoverSurface"] = new SolidColorBrush(Mix(palette.Top, Colors.White, .22));
-        Resources["InputSurface"] = new SolidColorBrush(palette.Bottom);
-        Resources["SwitchOff"] = new SolidColorBrush(Mix(palette.Top, palette.Bottom, .2));
-        Resources["PopupSurface"] = new SolidColorBrush(palette.Middle);
-        Resources["Line"] = Resources["PopupBorder"] = new SolidColorBrush(Mix(palette.Rim, palette.Bottom, .45));
-        Resources["Accent"] = new SolidColorBrush(Mix(palette.Top, Colors.White, .78));
-        Resources["Muted"] = new SolidColorBrush(Color.FromRgb(215, 217, 221));
-        Resources["Secondary"] = new SolidColorBrush(Color.FromRgb(230, 232, 235));
+        if (Background is not LinearGradientBrush background)
+        { background = new LinearGradientBrush(top, palette.Bottom, new Point(0, 0), new Point(0, 1)); Background = windowFrame.Background = background; }
+        ThemeColor(background.GradientStops[0], GradientStop.ColorProperty, top);
+        ThemeColor(background.GradientStops[1], GradientStop.ColorProperty, palette.Bottom);
+        ThemeColor(captionBrush, SolidColorBrush.ColorProperty, top);
+        sidebar.Background = Paint("Sidebar", Mix(palette.Top, palette.Bottom, .35));
+        windowFrame.BorderBrush = Paint("WindowRim", palette.Rim);
+        Paint("ControlSurface", Mix(palette.Top, palette.Bottom, .45));
+        Paint("SelectionSurface", Mix(palette.Top, Colors.White, .16));
+        Paint("HoverSurface", Mix(palette.Top, Colors.White, .22));
+        Paint("InputSurface", palette.Bottom);
+        Paint("SwitchOff", Mix(palette.Top, palette.Bottom, .2));
+        Paint("PopupSurface", palette.Middle);
+        Paint("Line", Mix(palette.Rim, palette.Bottom, .45)); Paint("PopupBorder", Mix(palette.Rim, palette.Bottom, .45));
+        Paint("Accent", Mix(palette.Top, Colors.White, .78));
+        Paint("Muted", Color.FromRgb(215, 217, 221));
+        Paint("Secondary", Color.FromRgb(230, 232, 235));
         var contrast = ControlContrast.For([palette.Top, palette.Bottom]);
-        Resources["SliderRail"] = new SolidColorBrush(contrast.Rail);
-        Resources["SliderInk"] = new SolidColorBrush(contrast.Ink);
-        Resources["SliderRim"] = new SolidColorBrush(contrast.Rim);
+        Paint("SliderRail", contrast.Rail); Paint("SliderInk", contrast.Ink); Paint("SliderRim", contrast.Rim);
+    }
+    private SolidColorBrush Paint(string key, Color color)
+    {
+        if (!Resources.Contains(key) || Resources[key] is not SolidColorBrush brush || brush.IsFrozen)
+        { var created = new SolidColorBrush(color); Resources[key] = created; return created; }
+        ThemeColor(brush, SolidColorBrush.ColorProperty, color); return brush;
+    }
+    private void ThemeColor(Animatable target, DependencyProperty property, Color color)
+    {
+        Color from = (Color)target.GetValue(property);
+        int revision = colorRevisions.TryGetValue(target, out int old) ? old + 1 : 1; colorRevisions[target] = revision;
+        if (!IsVisible || !Motion.Enabled) { target.BeginAnimation(property, null); target.SetValue(property, color); return; }
+        target.SetValue(property, from);
+        var animation = new ColorAnimation(from, color, TimeSpan.FromMilliseconds(420)) { FillBehavior = FillBehavior.HoldEnd, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } };
+        animation.Completed += (_, _) => { if (colorRevisions[target] == revision) { target.SetValue(property, color); target.BeginAnimation(property, null); } };
+        target.BeginAnimation(property, animation, HandoffBehavior.SnapshotAndReplace);
     }
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
     internal void SelectPage(int index) { int target = Math.Clamp(index, 0, 6); if (navigation.SelectedIndex == target) BuildPage(); else navigation.SelectedIndex = target; }
@@ -109,6 +136,7 @@ internal sealed class SettingsWindow : Window
     private void UpdatePreview() { preview.Configure(settings.AnimationStyle, settings.Radius, settings.AnimationSpeed, settings.SpringStrength); previewClock.Text = DateTime.Now.ToString("HH:mm    d MMMM"); }
     private void BuildPage()
     {
+        weatherCitiesPanel = null;
         var content = new StackPanel();
         string title = navigation.SelectedItem as string ?? "Остров";
         content.Children.Add(new TextBlock { Text = title, FontSize = 26, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 24) });
@@ -153,7 +181,17 @@ internal sealed class SettingsWindow : Window
                 Hint(content, "Если анимации отключены в Windows, переходы также отключаются. Постоянных движений в покое нет.");
                 break;
             case 5:
+                Section(content, "Плеер");
+                Hint(content, "Источник воспроизведения");
+                var players = new ComboBox { ItemsSource = island.PlaybackSources, DisplayMemberPath = "Value", SelectedValuePath = "Key", SelectedValue = island.PlaybackSource, Margin = new Thickness(0, 8, 0, 12) };
+                System.Windows.Automation.AutomationProperties.SetName(players, "Источник воспроизведения");
+                players.SelectionChanged += async (_, _) => { if (players.SelectedValue is string id) await island.SelectPlaybackSourceAsync(id); };
+                content.Children.Add(players);
+                Action(content, island.YouTubeConnectionAction, async () => { await island.ToggleYouTubeConnectionAsync(); BuildPage(); });
+                Action(content, "Настройки звука Windows", island.OpenWindowsSoundSettings);
                 Section(content, "Тексты песен");
+                Action(content, "Искать текст текущей песни заново", island.RetryCurrentLyrics);
+                Action(content, "Открыть файл LRC для текущей песни", island.OpenCurrentLyricsFile);
                 Toggle(content, "Брать текст из приложения Яндекс Музыки", settings.YandexLyricsEnabled, x => settings.YandexLyricsEnabled = x);
                 var connect = new Button { Content = "Подключить Яндекс Музыку", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 6) };
                 var connectStatus = new TextBlock { Text = "Используется локальный порт 127.0.0.1:9226. Первое подключение перезапустит плеер. Аккаунт остаётся в Яндекс Музыке.", Foreground = (Brush)FindResource("Muted"), FontSize = 11, TextWrapping = TextWrapping.Wrap };
@@ -234,28 +272,6 @@ internal sealed class SettingsWindow : Window
                 break;
         }
         PolishedMotion.Swap(page, () => { page.Content = content; pageScroll?.ScrollToTop(); }, 320, 5);
-    }
-    private void WeatherPage(StackPanel content)
-    {
-        Hint(content, "Прогноз Open-Meteo. Выберите город из результатов поиска; он будет сохранён на этом компьютере.");
-        var input = new TextBox { Text = settings.WeatherCity, Margin = new Thickness(0, 14, 0, 10), Height = 38 };
-        content.Children.Add(input);
-        var results = new ListBox { MaxHeight = 220, DisplayMemberPath = "Label" };
-        var state = new TextBlock { Text = settings.WeatherLocation?.Label ?? "Город не выбран", Foreground = (Brush)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 10) };
-        var search = new Button { Content = "Найти город", HorizontalAlignment = HorizontalAlignment.Left };
-        search.Click += async (_, _) =>
-        {
-            if (input.Text.Trim().Length < 2) { state.Text = "Введите хотя бы две буквы"; return; }
-            search.IsEnabled = false; state.Text = "Ищем город…";
-            try { var locations = await new WeatherService().SearchAsync(input.Text.Trim()); results.ItemsSource = locations; state.Text = locations.Length == 0 ? "Город не найден" : "Выберите город в списке"; }
-            catch (Exception ex) { state.Text = "Не удалось выполнить поиск: " + ex.Message; }
-            finally { search.IsEnabled = true; }
-        };
-        input.KeyDown += (_, args) => { if (args.Key == Key.Enter) search.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); };
-        results.SelectionChanged += async (_, _) => { if (results.SelectedItem is WeatherLocation location) { state.Text = "Загружаем прогноз для " + location.Label; await island.SetWeatherLocationAsync(location); state.Text = "Выбран город: " + location.Label; } };
-        content.Children.Add(search); content.Children.Add(state); content.Children.Add(results);
-        Hint(content, "Название города отправляется в поиск Open-Meteo; координаты выбранного города — в сервис прогноза. Автоматического определения местоположения нет.");
-        Action(content, "Открыть погоду на острове", () => { island.ShowWeatherPage(); });
     }
     private void Toggle(StackPanel parent, string text, bool value, Action<bool> set)
     {

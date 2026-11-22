@@ -13,40 +13,19 @@ public partial class MainWindow
         PlayButton.ToolTip = action;
         System.Windows.Automation.AutomationProperties.SetName(PlayButton, action);
     }
-    private void OpenLyricsMenu(object sender, RoutedEventArgs e)
+    internal KeyValuePair<string,string>[] PlaybackSources => new[] { new KeyValuePair<string,string>("", "Автоматически") }
+        .Concat(media.Sessions.Select(x => x.SourceAppUserModelId).Distinct().Select(x => new KeyValuePair<string,string>(x, FriendlyPlayerName(x)))).ToArray();
+    internal string PlaybackSource => media.SelectedSource ?? "";
+    internal async Task SelectPlaybackSourceAsync(string id) { media.SelectedSource = id.Length == 0 ? null : id; await media.RefreshAsync(); }
+    internal void RetryCurrentLyrics() => RetryLyrics(this, new RoutedEventArgs());
+    internal void OpenCurrentLyricsFile() => OpenLyricsFile(this, new RoutedEventArgs());
+    internal void OpenWindowsSoundSettings() => OpenSound(this, new RoutedEventArgs());
+    internal string YouTubeConnectionAction => Services.YouTubeBrowserBridge.Shared.IsConnected ? "Отключить YouTube" : Services.YouTubeBrowserBridge.Shared.IsConnecting ? "Отменить подключение YouTube" : "Подключить YouTube";
+    internal async Task ToggleYouTubeConnectionAsync()
     {
-        var menu = new ContextMenu(); TrackIslandMenu(menu);
-        AddMenuAction(menu, "Искать текст заново", () => RetryLyrics(this, new RoutedEventArgs()));
-        AddMenuAction(menu, "Открыть файл LRC", () => OpenLyricsFile(this, new RoutedEventArgs()));
-        AddMenuAction(menu, "Источники и синхронизация", () => OpenLyricsSettings(this, new RoutedEventArgs()));
-        menu.PlacementTarget = LyricsMenuButton; menu.IsOpen = true;
-    }
-    private void OpenPlayerOptions(object sender, RoutedEventArgs e)
-    {
-        var menu = new ContextMenu(); TrackIslandMenu(menu);
-        foreach (string source in media.Sessions.Select(x => x.SourceAppUserModelId).Distinct())
-        {
-            string selected = source;
-            var item = new MenuItem { Header = (source == media.Source ? "Выбран: " : "Выбрать: ") + FriendlyPlayerName(source) };
-            item.Click += async (_, _) => { media.SelectedSource = selected; await media.RefreshAsync(); };
-            menu.Items.Add(item);
-        }
         var youtube = Services.YouTubeBrowserBridge.Shared;
-        var youtubeItem = new MenuItem { Header = youtube.IsConnected ? "Отключить YouTube" : youtube.IsConnecting ? "Отменить подключение YouTube" : "Подключить YouTube" };
-        youtubeItem.Click += async (_, _) =>
-        {
-            if (youtube.IsConnected || youtube.IsConnecting) await youtube.DisconnectAsync();
-            else youtube.RequestConnection();
-            await media.RefreshAsync(); Status.Text = youtube.Status;
-        };
-        menu.Items.Add(youtubeItem);
-        AddMenuAction(menu, "Настройки звука Windows", () => OpenSound(this, new RoutedEventArgs()));
-        AddMenuAction(menu, "Настройки музыки", () => OpenPreferences(5));
-        menu.PlacementTarget = PlayerOptionsButton; menu.IsOpen = true;
-    }
-    private static void AddMenuAction(ContextMenu menu, string title, Action action)
-    {
-        var item = new MenuItem { Header = title }; item.Click += (_, _) => action(); menu.Items.Add(item);
+        if (youtube.IsConnected || youtube.IsConnecting) await youtube.DisconnectAsync(); else youtube.RequestConnection();
+        await media.RefreshAsync(); Status.Text = youtube.Status;
     }
     private static string FriendlyPlayerName(string source)
     {

@@ -126,6 +126,11 @@ public partial class MainWindow
             Check("collapse renders intermediate geometry", Height > CompactPresentationHeight + 1 && Height < outgoingHeight - 1);
             await AwaitShellAsync();
             Check("collapse releases the retained frame", TrackVisualSnapshot.Source == null);
+            SetExpanded(true); await AwaitShellAsync();
+            SetExpanded(false); await Task.Delay(60); settings.MiniMode = true; RefreshIdleContent();
+            await AwaitShellAsync();
+            Check("collapse settles a compact state change received during motion", Math.Abs(Width - CompactPresentationWidth) < .1 && Math.Abs(Height - CompactPresentationHeight) < .1 && !shellMoving);
+            settings.MiniMode = false; RefreshIdleContent(); UpdateCompactNotification(true); await AwaitShellAsync();
             HideAnimated(); await Task.Delay(80);
             Check("hide marks glow as unavailable from first frame", hiding);
             Reveal(); await AwaitShellAsync(); await Task.Delay(650);
