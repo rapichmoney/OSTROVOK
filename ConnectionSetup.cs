@@ -24,14 +24,14 @@ public partial class MainWindow
                 if (settings.SetupVersion < 1 || manual) YandexLaunchSetup.Install();
                 states.Add("Для управления Яндекс Музыкой используйте кнопку подключения в разделе «Музыка»");
             }
-            if (TelegramNotificationService.HasIdentity)
+            if (TelegramNotificationService.HasIdentity && (manual || settings.SetupVersion < 1 || settings.TelegramNotificationsEnabled))
             {
                 bool first = settings.SetupVersion < 1;
                 string result = await telegramNotifications.ConnectAsync(first || manual);
                 settings.TelegramNotificationsEnabled = telegramNotifications.Connected;
                 states.Add(result);
             }
-            else states.Add("Уведомления: подключите пакет Windows в разделе «Данные»");
+            else states.Add(TelegramNotificationService.HasIdentity ? "Уведомления отключены в настройках" : "Уведомления: подключите пакет Windows в разделе «Данные»");
             connectionSummary = string.Join(". ", states);
             if (settings.SetupVersion < 1 || manual)
             {
