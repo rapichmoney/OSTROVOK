@@ -19,6 +19,7 @@ public partial class MainWindow
     private int currentLyricIndex = -1;
     private readonly List<TextBlock> lyricViews = [];
     private readonly List<KaraokeLine> lyricFills = [];
+    private KaraokeLine? compactReadAlong;
     private bool localLyrics;
     private bool lyricScrollPending;
     private bool lyricScrollImmediate;
@@ -27,6 +28,8 @@ public partial class MainWindow
 
     private void InitializeLyrics()
     {
+        compactReadAlong = new KaraokeLine(CompactTrack, singleLine: true) { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
+        CompactTextContent.Children.Add(compactReadAlong);
         lyricTimer.Tick += (_, _) => UpdateLyricPosition(media.Position);
         lyricTimer.Start();
         if (!App.VerificationMode) CompositionTarget.Rendering += RenderCompactLyrics;
@@ -179,7 +182,10 @@ public partial class MainWindow
         var line = lyricsResult.Lines[currentLyricIndex];
         double end = line.EndSeconds ?? (currentLyricIndex + 1 < lyricsResult.Lines.Length ? lyricsResult.Lines[currentLyricIndex + 1].Seconds : media.Duration);
         lyricFills[currentLyricIndex].ReadAlong = settings.ReadAlong;
-        lyricFills[currentLyricIndex].Progress = end > line.Seconds ? (position + settings.LyricsAdjustment - line.Seconds) / (end - line.Seconds) : 1;
+        double time = position + settings.LyricsAdjustment + (settings.ReadAlong ? settings.ReadAlongAdjustment : 0);
+        lyricFills[currentLyricIndex].WordPosition = time < line.Seconds ? -1 : LyricsService.WordCharacterAt(line, time);
+        lyricFills[currentLyricIndex].Progress = end > line.Seconds ? (time - line.Seconds) / (end - line.Seconds) : 1;
+        if (settings.ReadAlong) LyricsStatus.ToolTip = lyricsResult.Status + (line.Words?.Length > 0 ? "\nRead Along: метки слов из источника" : "\nRead Along: приблизительно по таймкодам строки");
     }
     private void QueueCurrentLyricScroll(bool immediate = false)
     {

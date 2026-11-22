@@ -1,5 +1,5 @@
 (() => {
-  if (window.__islandYandex?.version === 8 && window.__islandYandex.refresh()) return true;
+  if (window.__islandYandex?.version === 9 && window.__islandYandex.refresh()) return true;
   function findModels() {
     const candidates = [...document.querySelectorAll('input[type="range"],button[data-test-id="LIKE_BUTTON"],button[data-test-id="PLAY_BUTTON"]'), ...document.querySelectorAll('button,main,section,[data-test-id]')].slice(0, 400);
     const seen = new Set();
@@ -21,7 +21,7 @@
   const pending = new Map(), delivered = new Map();
   const metadataOf = meta => meta?.id ? ({ id: String(meta.realId || meta.id).split(':')[0], title: meta.title || '', artist: (meta.artists || []).map(a => a.name).filter(Boolean).join(', '), duration: Number(meta.durationMs || 0) / 1000, hasLyrics: !!meta.hasLyrics, hasSyncLyrics: !!meta.hasSyncLyrics }) : null;
   const adapter = {
-    version: 8, get models() { return models; }, syncFactory: null, warmId: '', warmAt: 0, warmJob: null,
+    version: 9, get models() { return models; }, syncFactory: null, warmId: '', warmAt: 0, warmJob: null,
     refresh() { const fresh = findModels(); if (!fresh) return false; models = fresh; return true; },
     ratingButton(kind) {
       const buttons = Array.from(document.querySelectorAll('button[data-test-id="' + (kind === 'like' ? 'LIKE_BUTTON' : 'DISLIKE_BUTTON') + '"]'));
@@ -128,6 +128,18 @@
       const job = this.load(requestedId, plainOnly).finally(() => pending.delete(key));
       pending.set(key, job); return job;
     },
+    timedLine(line) {
+      const text = String(line.text || '');
+      let cursor = 0;
+      const words = Array.from(line.words || []).flatMap(word => {
+        const token = String(word.text || '');
+        const start = text.indexOf(token, cursor), seconds = Number(word.fromSec), endSeconds = Number(word.toSec);
+        if (!token || start < 0 || !Number.isFinite(seconds) || seconds < 0) return [];
+        cursor = start + token.length;
+        return [{ seconds, start, length: token.length, ...(Number.isFinite(endSeconds) && endSeconds > seconds ? { endSeconds } : {}) }];
+      });
+      return { seconds: Number(line.fromSec), endSeconds: Number(line.toSec), text, ...(words.length ? { words } : {}) };
+    },
     async load(requestedId, plainOnly = false) {
       const meta = this.metadata();
       const id = String(requestedId || meta?.id || '');
@@ -139,14 +151,14 @@
       let lines = [], plain = '';
       const visibleSync = findModels()?.sync || models.sync;
       if (!plainOnly && String(visibleSync?.currentTrackId || '').split(':')[0] === id && visibleSync?.loadingState === 'RESOLVE')
-        lines = Array.from(visibleSync.lines || []).map(l => ({ seconds: Number(l.fromSec), endSeconds: Number(l.toSec), text: String(l.text || '') }))
+        lines = Array.from(visibleSync.lines || []).map(l => this.timedLine(l))
           .filter(l => Number.isFinite(l.seconds) && l.seconds >= 0);
       if (!plainOnly && !lines.length && this.syncFactory) {
         const f = this.syncFactory;
         const model = f.type.create(f.snapshot, f.environment);
         await model.getData(id);
         if (model.loadingState === 'RESOLVE' && String(model.currentTrackId) === id)
-          lines = Array.from(model.lines).map(l => ({ seconds: Number(l.fromSec), endSeconds: Number(l.toSec), text: String(l.text || '') }))
+          lines = Array.from(model.lines).map(l => this.timedLine(l))
             .filter(l => Number.isFinite(l.seconds) && l.seconds >= 0);
       }
       if (!lines.length && cached) return cached;

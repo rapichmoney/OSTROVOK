@@ -20,23 +20,21 @@ internal static class PolishedMotion
 
     internal static void Swap(FrameworkElement element, Action change, double duration = 280, double distance = 6)
     {
+        if (snapshots.TryGetValue(element, out var previous)) previous.Dispose();
         if (!Motion.Enabled || !element.IsVisible || element.ActualWidth < 1 || element.ActualHeight < 1)
         { change(); return; }
         var layer = AdornerLayer.GetAdornerLayer(element);
-        Snapshot? old = null;
         if (layer != null)
         {
             var dpi = VisualTreeHelper.GetDpi(element);
             var bitmap = new RenderTargetBitmap(Math.Max(1, (int)Math.Ceiling(element.ActualWidth * dpi.DpiScaleX)),
                 Math.Max(1, (int)Math.Ceiling(element.ActualHeight * dpi.DpiScaleY)), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
             bitmap.Render(element); bitmap.Freeze();
-            old = new Snapshot(element, bitmap); layer.Add(old);
-            element.Unloaded += Remove;
-            Motion.Tween(old, UIElement.OpacityProperty, 0, duration >= 300 ? 120 : Math.Min(180, duration), completed: () => Remove(element, new RoutedEventArgs()));
-            void Remove(object sender, RoutedEventArgs e) { layer.Remove(old); element.Unloaded -= Remove; }
+            var lease = new SnapshotLease(element, layer, bitmap); snapshots.Add(element, lease);
+            Motion.Tween(lease.Snapshot, UIElement.OpacityProperty, 0, duration >= 300 ? 120 : Math.Min(180, duration), completed: lease.Dispose);
         }
         change(); Motion.Enter(element, distance, duration);
-        if (duration >= 300) Motion.Tween(element, UIElement.OpacityProperty, 1, duration - 65, 65);
+        if (duration >= 300) Motion.Tween(element, UIElement.OpacityProperty, 1, duration - 120, 120);
     }
     internal static void FillFromBottom(FrameworkElement element, Action change)
     {
@@ -49,21 +47,41 @@ internal static class PolishedMotion
         reveal.Completed += (_, _) => { if (ReferenceEquals(element.Clip, clip)) element.Clip = null; };
         clip.BeginAnimation(RectangleGeometry.RectProperty, reveal);
     }
-    internal static Action? Hold(FrameworkElement element)
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<FrameworkElement, SnapshotLease> snapshots = new();
+    internal static int SnapshotCount(FrameworkElement element) => snapshots.TryGetValue(element, out _) ? 1 : 0;
+    private sealed class SnapshotLease
     {
-        var layer = AdornerLayer.GetAdornerLayer(element);
-        if (layer == null || !element.IsVisible || element.ActualWidth < 1 || element.ActualHeight < 1) return null;
-        var dpi = VisualTreeHelper.GetDpi(element);
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth * dpi.DpiScaleX), (int)Math.Ceiling(element.ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-        bitmap.Render(element); bitmap.Freeze();
-        var snapshot = new Snapshot(element, bitmap); layer.Add(snapshot);
-        bool released = false;
-        return () => { if (released) return; released = true; Motion.Enter(element, 6, 420); Motion.Tween(snapshot, UIElement.OpacityProperty, 0, 420, completed: () => layer.Remove(snapshot)); };
+        private readonly FrameworkElement element;
+        private readonly AdornerLayer layer;
+        internal readonly Snapshot Snapshot;
+        private bool disposed;
+        internal SnapshotLease(FrameworkElement element, AdornerLayer layer, ImageSource bitmap)
+        {
+            this.element = element; this.layer = layer;
+            Snapshot = new Snapshot(element, bitmap); layer.Add(Snapshot);
+            element.Unloaded += Unload; element.IsVisibleChanged += Visibility;
+        }
+        private void Unload(object sender, RoutedEventArgs e) => Dispose();
+        private void Visibility(object sender, DependencyPropertyChangedEventArgs e) { if (!element.IsVisible) Dispose(); }
+        internal void Dispose()
+        {
+            if (disposed) return; disposed = true;
+            Snapshot.BeginAnimation(UIElement.OpacityProperty, null); layer.Remove(Snapshot);
+            element.Unloaded -= Unload; element.IsVisibleChanged -= Visibility;
+            if (snapshots.TryGetValue(element, out var current) && ReferenceEquals(current, this)) snapshots.Remove(element);
+        }
     }
-    private sealed class Snapshot(UIElement element, ImageSource bitmap) : Adorner(element)
+    private sealed class Snapshot : Adorner
     {
-        protected override void OnRender(DrawingContext drawing) => drawing.DrawImage(bitmap, new Rect(AdornedElement.RenderSize));
-        protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters) => null;
+        private readonly ImageSource bitmap;
+        private readonly Size capturedSize;
+        internal Snapshot(UIElement element, ImageSource bitmap) : base(element)
+        { this.bitmap = bitmap; capturedSize = element.RenderSize; IsHitTestVisible = false; }
+        protected override void OnRender(DrawingContext drawing)
+        {
+            drawing.PushClip(new RectangleGeometry(new Rect(AdornedElement.RenderSize)));
+            drawing.DrawImage(bitmap, new Rect(capturedSize)); drawing.Pop();
+        }
     }
 
     internal static void Menu(ContextMenu menu)

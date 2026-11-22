@@ -218,6 +218,15 @@ internal static class SelfTests
             var lrc = LyricsService.ParseLrc("[ar:Synthetic]\n[offset:+100]\n[00:01.20]Первая тестовая строка\n[00:03.500][00:06.50]Повтор\n[00:05.00]\n[00:07.05]<00:07.05>Тест <00:07.50>слов");
             Check("LRC fractions, repeated timestamps and blanks", lrc.Length == 5 && Math.Abs(lrc[0].Seconds - 1.1) < .001 && lrc[2].Text == "" && lrc[3].Text == "Повтор");
             Check("LRC word tags do not leak into text", lrc[4].Text == "Тест слов");
+            Check("enhanced LRC preserves source word times", lrc[4].Words is { Length: 2 } w && Math.Abs(w[0].Seconds - 6.95) < .001 && Math.Abs(w[1].Seconds - 7.4) < .001 && w[1].Start == 5 && w[1].Length == 4);
+            Check("word marker waits for source onset", LyricsService.WordCharacterAt(lrc[4], 6.9) == -1);
+            Check("word marker obeys uneven word timing", LyricsService.WordCharacterAt(lrc[4], 7.39) < 4 && LyricsService.WordCharacterAt(lrc[4], 7.4) > 5);
+            Check("plain line timing is not labelled as word timing", LyricsService.WordCharacterAt(lrc[0], 2) == null);
+            var repeatedWords = LyricsService.ParseLrc("[00:01.00][00:10.00]<00:01.20>One <00:02.00>two<00:02.50>");
+            Check("repeated word timings shift with their line", repeatedWords.Length == 2 && repeatedWords[1].Words is { Length: 2 } rw && Math.Abs(rw[0].Seconds - 10.2) < .001 && Math.Abs(rw[1].EndSeconds!.Value - 11.5) < .001);
+            using var wordPayload = JsonDocument.Parse("""{"state":"ready","plain":"","lines":[{"seconds":1,"text":"one two","words":[{"seconds":1.5,"start":0,"length":3},{"seconds":4,"start":4,"length":3}]}]}""");
+            Check("native bridge retains validated word timestamps", YandexLyricsBridge.ParseResult(wordPayload.RootElement)?.Lines[0].Words is { Length: 2 } nw && nw[1].Seconds == 4);
+
             Check("lyric line changes at exact timestamp", LyricsService.LineAt(lrc, 1.09) == -1 && LyricsService.LineAt(lrc, 1.1) == 0 && LyricsService.LineAt(lrc, 3.4) == 1);
             Check("lyric selection follows seeking backwards", LyricsService.LineAt(lrc, 7) == 4 && LyricsService.LineAt(lrc, 2) == 0);
             Check("manual lyric offset applies", LyricsService.LineAt(lrc, .6, .5) == 0 && LyricsService.LineAt(lrc, 1.1, -.5) == -1);

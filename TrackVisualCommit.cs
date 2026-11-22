@@ -10,7 +10,6 @@ public partial class MainWindow
     private string pendingVisualKey = "", lyricsReadyVisualKey = "";
     private double heldWindowWidth, heldWindowHeight;
     private int trackVisualRevision;
-    private Action? releaseTrackIdentity;
     private string CurrentVisualKey => media.Source + "\n" + media.Title + "\n" + media.Artist;
     private void BeginTrackVisualHold(string key, bool verification = false)
     {
@@ -18,7 +17,6 @@ public partial class MainWindow
         if (!trackVisualPending)
         {
             heldWindowWidth = Width; heldWindowHeight = Height;
-            releaseTrackIdentity = PolishedMotion.Hold(TrackIdentity);
         }
         ++trackVisualRevision; trackCommitQueued = false;
         trackVisualPending = true; pendingVisualKey = key; lyricsReadyVisualKey = "";
@@ -39,7 +37,6 @@ public partial class MainWindow
             trackCommitQueued = false;
             if (revision != trackVisualRevision || !trackVisualPending || CurrentVisualKey != pendingVisualKey || !media.ArtworkReady || (settings.LyricsEnabled && lyricsReadyVisualKey != pendingVisualKey)) return;
             UpdateLayout(); trackVisualPending = false;
-            releaseTrackIdentity?.Invoke(); releaseTrackIdentity = null;
             RefreshIdleContent(); UpdateLayout();
             if (expanded && Navigation.SelectedIndex == 0) AnimateExpansion(true);
         }));
@@ -48,7 +45,6 @@ public partial class MainWindow
     {
         if (!trackVisualPending && TrackVisualSnapshot.Source == null) return;
         ++trackVisualRevision; trackVisualPending = trackCommitQueued = false;
-        releaseTrackIdentity?.Invoke(); releaseTrackIdentity = null;
         TrackVisualSnapshot.BeginAnimation(OpacityProperty, null); TrackVisualSnapshot.Source = null; TrackVisualSnapshot.Visibility = Visibility.Collapsed;
         Motion.ClearContentMotion(Shell);
     }

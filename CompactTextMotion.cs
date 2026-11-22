@@ -22,6 +22,7 @@ public partial class MainWindow
             CompactTextSnapshot.Source = image; CompactTextSnapshot.Visibility = Visibility.Visible; CompactTextSnapshot.Opacity = 1;
         }
         CompactTrack.Text = text; CompactLyricFill.Visibility = Visibility.Collapsed;
+        if (compactReadAlong != null) compactReadAlong.Visibility = Visibility.Collapsed; CompactTrack.Opacity = 1;
         if (animate)
         {
             Motion.Enter(CompactTextContent, 14, 380);

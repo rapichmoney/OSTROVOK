@@ -8,7 +8,8 @@ using System.Threading;
 
 namespace DesktopIsland.Services;
 
-public sealed record LyricLine(double Seconds, string Text, double? EndSeconds = null);
+public sealed record LyricWord(double Seconds, int Start, int Length, double? EndSeconds = null);
+public sealed record LyricLine(double Seconds, string Text, double? EndSeconds = null, LyricWord[]? Words = null);
 public sealed record LyricTrack(string Title, string Artist, string Album, double Duration)
 {
     public string Key => $"{Title.Trim()}\n{Artist.Trim()}\n{Album.Trim()}\n{Math.Round(Duration)}";
@@ -119,17 +120,48 @@ public sealed class LyricsService
         {
             var stamps = Regex.Matches(raw, @"\[(\d{1,3}):([0-5]\d)(?:[\.:](\d{1,3}))?\]");
             if (stamps.Count == 0) continue;
-            string text = raw[(stamps[^1].Index + stamps[^1].Length)..].Trim();
-            // Remove enhanced-LRC word timestamps while retaining the line text.
-            text = Regex.Replace(text, @"<\d{1,3}:[0-5]\d(?:\.\d{1,3})?>", "");
+            string payload = raw[(stamps[^1].Index + stamps[^1].Length)..];
+            var wordStamps = Regex.Matches(payload, @"<(\d{1,3}):([0-5]\d)(?:[\.:](\d{1,3}))?>");
+            string untrimmed = Regex.Replace(payload, @"<\d{1,3}:[0-5]\d(?:[\.:]\d{1,3})?>", "");
+            int trim = untrimmed.Length - untrimmed.TrimStart().Length;
+            string text = untrimmed.Trim();
+            double Time(Match stamp) => int.Parse(stamp.Groups[1].Value, CultureInfo.InvariantCulture) * 60 + int.Parse(stamp.Groups[2].Value, CultureInfo.InvariantCulture)
+                + (stamp.Groups[3].Success ? double.Parse("0." + stamp.Groups[3].Value, CultureInfo.InvariantCulture) : 0) - offset;
+            double firstLine = Time(stamps[0]);
             foreach (Match stamp in stamps)
             {
-                double fraction = stamp.Groups[3].Success ? double.Parse("0." + stamp.Groups[3].Value, CultureInfo.InvariantCulture) : 0;
-                double seconds = int.Parse(stamp.Groups[1].Value, CultureInfo.InvariantCulture) * 60 + int.Parse(stamp.Groups[2].Value, CultureInfo.InvariantCulture) + fraction - offset;
-                result.Add(new LyricLine(Math.Max(0, seconds), text));
+                double seconds = Math.Max(0, Time(stamp));
+                var words = new List<LyricWord>();
+                int removed = 0;
+                for (int i = 0; i < wordStamps.Count; i++)
+                {
+                    Match marker = wordStamps[i];
+                    int end = i + 1 < wordStamps.Count ? wordStamps[i + 1].Index : payload.Length;
+                    string segment = payload[(marker.Index + marker.Length)..end];
+                    int leading = segment.Length - segment.TrimStart().Length;
+                    int start = marker.Index - removed - trim + leading;
+                    int length = segment.Trim().Length;
+                    double at = Time(marker) + (Time(stamp) - firstLine);
+                    double? until = i + 1 < wordStamps.Count ? Time(wordStamps[i + 1]) + (Time(stamp) - firstLine) : null;
+                    if (length > 0 && start >= 0 && start + length <= text.Length && at >= 0)
+                        words.Add(new LyricWord(at, start, length, until > at ? until : null));
+                    removed += marker.Length;
+                }
+                bool valid = words.Count > 0 && words.Zip(words.Skip(1)).All(x => x.First.Seconds <= x.Second.Seconds);
+                result.Add(new LyricLine(seconds, text, Words: valid ? words.ToArray() : null));
             }
         }
         return result.OrderBy(x => x.Seconds).GroupBy(x => (x.Seconds, x.Text)).Select(x => x.First()).ToArray();
+    }
+    // Null means that the source supplies no word-level timing. Never manufacture an exact timing claim.
+    public static double? WordCharacterAt(LyricLine line, double seconds)
+    {
+        var words = line.Words;
+        if (words == null || words.Length == 0) return null;
+        if (seconds < words[0].Seconds) return -1;
+        var word = words.LastOrDefault(x => x.Seconds <= seconds);
+        if (word == null) return -1;
+        return word.Start + Math.Max(0, word.Length - .001);
     }
     public static int LineAt(IReadOnlyList<LyricLine> lines, double position, double adjustment = 0)
     {

@@ -50,6 +50,7 @@ public partial class MainWindow : Window
         if (App.VerificationMode) verificationRoot = Path.Combine(Path.GetTempPath(), "DesktopIsland-ui-" + Guid.NewGuid().ToString("N"));
         store = new LocalStore(verificationRoot);
         InitializeComponent();
+        Icon = BrandIcon;
         Timeline.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(BeginSeek), true);
         Timeline.AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(Seek), true);
         ContentTabs.SelectedIndex = 0;
@@ -252,17 +253,19 @@ public partial class MainWindow : Window
         bool trackChanged = trackKey != displayedTrack;
         if (trackChanged && media.Available && displayedTrack.Length > 0) BeginTrackVisualHold(trackKey);
         displayedTrack = trackKey;
-        TrackTitle.Text = media.Title; TrackArtist.Text = media.Artist;
+        // Keep real controls unchanged while artwork loads; never layer a held bitmap over live metadata.
+        if (media.ArtworkReady || !previouslyAvailable)
+        {
+            bool identityChanged = TrackTitle.Text != media.Title || TrackArtist.Text != media.Artist || !ReferenceEquals(Artwork.Source, media.Artwork);
+            void CommitIdentity() { TrackTitle.Text = media.Title; TrackArtist.Text = media.Artist; Artwork.Source = media.Artwork; ArtFallback.Visibility = media.Artwork == null ? Visibility.Visible : Visibility.Collapsed; }
+            if (identityChanged && expanded && previouslyAvailable) PolishedMotion.Swap(TrackIdentity, CommitIdentity, 420, 6);
+            else CommitIdentity();
+        }
         MediaSource.Text = media.Error ?? (string.IsNullOrEmpty(media.Source) ? "Плееры Windows" : media.Source);
-        Artwork.Source = media.Artwork; ArtFallback.Visibility = media.Artwork == null ? Visibility.Visible : Visibility.Collapsed;
         UpdatePlaybackButton(media.Playing);
         PlayButton.IsEnabled = media.CanPlay; NextButton.IsEnabled = media.CanNext; PreviousButton.IsEnabled = media.CanPrevious;
         Timeline.IsEnabled = CanSeekSelectedPlayer && media.Duration > 0;
         if (!seeking) { Timeline.Maximum = Math.Max(1, media.Duration); Timeline.Value = Math.Min(Timeline.Maximum, media.Position); }
-        if (trackChanged && expanded && IsLoaded)
-        {
-            Motion.Enter(Artwork, 0, 220); Motion.Enter(TrackTitle, 5, 190); Motion.Enter(TrackArtist, 5, 220);
-        }
         if (!seeking) Elapsed.Text = FormatTime(media.Position); DurationText.Text = FormatTime(media.Duration);
         var sources = media.Sessions.Select(x => x.SourceAppUserModelId).Distinct().ToArray();
         if (!sources.SequenceEqual(Players.Items.Cast<string>()))

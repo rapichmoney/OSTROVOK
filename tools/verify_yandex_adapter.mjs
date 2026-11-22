@@ -109,3 +109,10 @@ coldContext.sonataState.entityMeta = nextMeta;
 assert.equal((await coldAdapter.read()).id, '400');
 assert.equal(coldRequests, 2);
 console.log('Yandex cold start: no lyrics screen required, concurrent requests shared, next queue track prefetched and reused on transition.');
+
+const wordLine = window.__islandYandex.timedLine({fromSec: 1, toSec: 6, text: 'one two', words: [{fromSec: 1.3, toSec: 2, text: 'one'}, {fromSec: 4.2, toSec: 5, text: 'two'}]});
+assert.equal(wordLine.words.length, 2);
+assert.equal(wordLine.words[1].seconds, 4.2);
+assert.equal(wordLine.words[1].start, 4);
+assert.equal(window.__islandYandex.timedLine({fromSec: 1, toSec: 6, text: 'plain line'}).words, undefined);
+console.log('Word timing: native boundaries preserved; plain lines do not invent words.');

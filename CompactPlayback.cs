@@ -15,6 +15,8 @@ public partial class MainWindow
     private void ApplyCompactPlayback(bool active, bool playing, ImageSource? artwork)
     {
         compactPlaybackPlaying = active && playing;
+        if (!HasTimedCompactLyrics || !settings.ReadAlong)
+        { if (compactReadAlong != null) compactReadAlong.Visibility = Visibility.Collapsed; CompactTrack.Opacity = 1; }
         CompactLyricFill.Effect ??= new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.White, ShadowDepth = 0, BlurRadius = 4, Opacity = .6 };
         CompactArtworkFrame.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
         CompactPlaybackBars.Visibility = active && playing ? Visibility.Visible : Visibility.Collapsed;
@@ -77,15 +79,30 @@ public partial class MainWindow
         else UpdateCompactLyricProgress(position, index);
     }
 
+    private void HideCompactReadAlong()
+    {
+        if (compactReadAlong != null) compactReadAlong.Visibility = Visibility.Collapsed;
+        CompactTrack.Opacity = 1;
+    }
     private void UpdateCompactLyricProgress(double position, int index)
     {
-        if (IsTrackIntroduction) { CompactLyricFill.Visibility = Visibility.Collapsed; return; }
+        if (IsTrackIntroduction) { HideCompactReadAlong(); CompactLyricFill.Visibility = Visibility.Collapsed; return; }
         if (!settings.LyricsOnCompact || settings.MiniMode || lyricsResult?.Synced != true || index < 0 || index >= lyricsResult.Lines.Length || CompactArtworkFrame.Visibility != Visibility.Visible)
-        { CompactLyricFill.Visibility = Visibility.Collapsed; return; }
+        { HideCompactReadAlong(); CompactLyricFill.Visibility = Visibility.Collapsed; return; }
         var line = lyricsResult.Lines[index];
-        if (string.IsNullOrWhiteSpace(line.Text)) { CompactLyricFill.Visibility = Visibility.Collapsed; return; }
+        if (string.IsNullOrWhiteSpace(line.Text)) { HideCompactReadAlong(); CompactLyricFill.Visibility = Visibility.Collapsed; return; }
         double end = line.EndSeconds ?? (index + 1 < lyricsResult.Lines.Length ? lyricsResult.Lines[index + 1].Seconds : media.Duration);
         double fraction = end > line.Seconds ? Math.Clamp((position + settings.LyricsAdjustment - line.Seconds) / (end - line.Seconds), 0, 1) : 1;
+        if (settings.ReadAlong && compactReadAlong != null && !expanded)
+        {
+            double time = position + settings.LyricsAdjustment + settings.ReadAlongAdjustment;
+            CompactLyricFill.Visibility = Visibility.Collapsed; CompactTrack.Opacity = 0;
+            compactReadAlong.ReadAlong = true; compactReadAlong.WordPosition = time < line.Seconds ? -1 : Services.LyricsService.WordCharacterAt(line, time);
+            compactReadAlong.Progress = end > line.Seconds ? (time - line.Seconds) / (end - line.Seconds) : 1;
+            compactReadAlong.ToolTip = line.Words?.Length > 0 ? "Read Along: метки слов из источника" : "Read Along: приблизительно по таймкодам строки";
+            compactReadAlong.Visibility = Visibility.Visible; return;
+        }
+        HideCompactReadAlong();
         CompactTrack.Foreground = (Brush)FindResource("Muted");
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         if (line.Text != measuredCompactLine || dpi != measuredCompactDpi)

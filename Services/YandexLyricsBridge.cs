@@ -94,10 +94,31 @@ public sealed class YandexLyricsBridge
         return Normalize(metadata.GetProperty("title").GetString() ?? "") == Normalize(track.Title)
             && Normalize(metadata.GetProperty("artist").GetString() ?? "") == Normalize(track.Artist);
     }
+    private static LyricLine ReadLine(JsonElement data)
+    {
+        double seconds = data.GetProperty("seconds").GetDouble();
+        string text = data.GetProperty("text").GetString() ?? "";
+        double? end = data.TryGetProperty("endSeconds", out var endValue) && endValue.ValueKind == JsonValueKind.Number && endValue.GetDouble() > seconds ? endValue.GetDouble() : null;
+        var enriched = LyricsService.ParseLrc(FormattableString.Invariant($"[{(int)(seconds / 60):00}:{seconds % 60:00.000}]") + text).FirstOrDefault();
+        if (enriched?.Words?.Length > 0) return enriched with { Seconds = seconds, EndSeconds = end };
+        var words = new List<LyricWord>();
+        if (data.TryGetProperty("words", out var items) && items.ValueKind == JsonValueKind.Array)
+            foreach (var item in items.EnumerateArray())
+            {
+                if (!item.TryGetProperty("seconds", out var at) || at.ValueKind != JsonValueKind.Number || !at.TryGetDouble(out double when) || !double.IsFinite(when) || when < 0
+                    || !item.TryGetProperty("start", out var start) || start.ValueKind != JsonValueKind.Number || !start.TryGetInt32(out int index)
+                    || !item.TryGetProperty("length", out var length) || length.ValueKind != JsonValueKind.Number || !length.TryGetInt32(out int count)
+                    || index < 0 || count <= 0 || index > text.Length - count) continue;
+                double? until = item.TryGetProperty("endSeconds", out var finish) && finish.ValueKind == JsonValueKind.Number && finish.TryGetDouble(out double value) && double.IsFinite(value) && value > when ? value : null;
+                words.Add(new LyricWord(when, index, count, until));
+            }
+        bool valid = words.Count > 0 && words.Zip(words.Skip(1)).All(x => x.First.Seconds <= x.Second.Seconds && x.First.Start < x.Second.Start);
+        return new LyricLine(seconds, text, end, valid ? words.ToArray() : null);
+    }
     internal static LyricsResult? ParseResult(JsonElement result)
     {
         if (result.ValueKind != JsonValueKind.Object || result.GetProperty("state").GetString() != "ready") return null;
-        var lines = result.GetProperty("lines").EnumerateArray().Select(x => new LyricLine(x.GetProperty("seconds").GetDouble(), x.GetProperty("text").GetString() ?? "", x.TryGetProperty("endSeconds", out var end) && end.ValueKind == JsonValueKind.Number && end.GetDouble() > x.GetProperty("seconds").GetDouble() ? end.GetDouble() : null)).Where(x => double.IsFinite(x.Seconds) && x.Seconds >= 0).OrderBy(x => x.Seconds).ToArray();
+        var lines = result.GetProperty("lines").EnumerateArray().Select(ReadLine).Where(x => double.IsFinite(x.Seconds) && x.Seconds >= 0).OrderBy(x => x.Seconds).ToArray();
         var plain = result.GetProperty("plain").GetString() ?? "";
         return new LyricsResult(lines.Length > 0 ? "Яндекс Музыка · текст с таймкодами" : "Яндекс Музыка · текст без таймкодов", lines, plain);
     }

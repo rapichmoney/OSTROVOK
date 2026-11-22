@@ -38,7 +38,7 @@ public partial class MainWindow
             media.UpdateNativePlayback(new YandexLyricsBridge.PlaybackState(0, .5, "motion-fixture", false, false, true, true, "Проверка анимаций", "OSTROVOK", 30, true));
             UpdateMedia();
             settings.ReadAlong = true; settings.PlayerHeight = 620;
-            var fixture = new LyricsResult("Тест", [new(0, "Город за окном становится тише"), new(3, "Мы продолжаем путь без остановок"), new(6, "Свет остаётся рядом с нами")]);
+            var fixture = new LyricsResult("Тест", [new(0, "Город за окном становится тише", Words: [new(0, 0, 5), new(.8, 6, 2), new(1.4, 9, 5), new(2, 15, 10), new(2.6, 26, 4)]), new(3, "Мы продолжаем путь без остановок"), new(6, "Свет остаётся рядом с нами")]);
             ShowLyrics(fixture, "Текст с таймкодами");
             currentLyricIndex = -1; UpdateLyricPosition(.3); AnimateExpansion(true); UpdateLayout(); await AwaitShellAsync();
             Check("Read Along renders in the real player viewport", MediaPanel.IsVisible && LyricsScroll.ActualHeight >= 140 && lyricFills[0].ActualWidth > 0 && lyricFills[0].IsVisible);
@@ -46,6 +46,31 @@ public partial class MainWindow
             lyricFills[0].Progress = .6; await Task.Delay(360); Capture(Path.Combine(output, "read-along.png"));
             settings.ReadAlong = false; foreach (var fill in lyricFills) fill.ReadAlong = false;
             Check("ordinary lyric highlight remains available", lyricFills.All(x => !x.ReadAlong));
+            Check("main window uses branded icon", Icon is System.Windows.Media.Imaging.BitmapSource windowBitmap && windowBitmap.PixelWidth == 32);
+            var settingsTest = new SettingsWindow(this, settings);
+            Check("settings window uses branded icon", ReferenceEquals(settingsTest.Icon, BrandIcon));
+            settingsTest.Close();
+            int maximumSnapshots = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                int n = i; PolishedMotion.Swap(TrackIdentity, () => TrackTitle.Text = "Тест " + n, 420, 6);
+                maximumSnapshots = Math.Max(maximumSnapshots, PolishedMotion.SnapshotCount(TrackIdentity)); await Task.Delay(8);
+            }
+            Check("rapid track changes keep at most one snapshot", maximumSnapshots <= 1);
+            await Task.Delay(500);
+            Check("interrupted track transitions leave no snapshot", PolishedMotion.SnapshotCount(TrackIdentity) == 0 && (System.Windows.Documents.AdornerLayer.GetAdornerLayer(TrackIdentity)?.GetAdorners(TrackIdentity)?.Length ?? 0) == 0);
+            for (int i = 0; i < 20; i++)
+            {
+                media.UpdateNativePlayback(new YandexLyricsBridge.PlaybackState(0, .5, "rapid-" + i, false, false, true, true, "Быстрая смена " + i, "Тест", 30, true));
+                UpdateMedia(); await Task.Delay(8);
+            }
+            await Task.Delay(650);
+            Check("real media updates leave only the latest title", TrackTitle.Text == "Быстрая смена 19" && TrackArtist.Text == "Тест");
+            Check("real media updates remove outgoing overlays", PolishedMotion.SnapshotCount(TrackIdentity) == 0);
+            BeginTrackVisualHold(CurrentVisualKey, verification: true); UpdateMedia(); await Task.Delay(500);
+            Check("lyrics search never holds a bitmap over live track controls", PolishedMotion.SnapshotCount(TrackIdentity) == 0);
+            CancelTrackVisualHold();
+
             yandexPlayback = new YandexLyricsBridge.PlaybackState(0, .5, "fixture", true, false, true, true);
             UpdateYandexRating(); await Task.Delay(340);
             Check("liked track uses red ink", YandexLikeIcon.Fill is SolidColorBrush liked && liked.Color == Color.FromRgb(233, 78, 96));
@@ -58,6 +83,13 @@ public partial class MainWindow
             await Task.Delay(390); Check("menu animation reaches opaque state", menu.Opacity > .99); menu.IsOpen = false; await Task.Delay(400);
             Check("closing menu releases island interaction guard", openIslandMenus.Count == 0, $"isOpen={menu.IsOpen}, count={openIslandMenus.Count}");
             SetExpanded(false); await AwaitShellAsync();
+            settings.ReadAlong = true; ShowLyrics(fixture, "Текст с таймкодами");
+            UpdateLyricPosition(.9); RefreshIdleContent(); UpdateCompactLyricProgress(.9, 0); await Task.Delay(400); UpdateLayout();
+            Check("Read Along is rendered in compact island", compactReadAlong?.IsVisible == true && CompactTrack.Opacity == 0 && !CompactLyricFill.IsVisible);
+            Check("compact Read Along follows source word timing", compactReadAlong?.WordPosition > 5);
+            Capture(Path.Combine(output, "compact-read-along.png"));
+            settings.ReadAlong = false; UpdateCompactLyricProgress(.9, 0);
+            Check("disabling Read Along restores compact fill", compactReadAlong?.IsVisible == false && CompactTrack.Opacity == 1 && CompactLyricFill.IsVisible);
             settings.TelegramNotificationsEnabled = true;
             ReceiveTelegramNotification(new TelegramMessage(101, "Проверка", "Первое сообщение", DateTimeOffset.UtcNow));
             ReceiveTelegramNotification(new TelegramMessage(102, "Проверка", "Второе сообщение", DateTimeOffset.UtcNow));

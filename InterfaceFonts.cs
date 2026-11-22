@@ -22,5 +22,6 @@ public partial class MainWindow
         Clock.FontFamily = HomeClock.FontFamily = FontFamily;
         measuredCompactLine = compactMeasuredTitle = "";
         foreach (var fill in lyricFills) fill.InvalidateVisual();
+        compactReadAlong?.InvalidateVisual();
     }
 }

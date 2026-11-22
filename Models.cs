@@ -61,6 +61,7 @@ public sealed class AppSettings
     public bool LyricsEnabled { get; set; } = true;
     public bool LyricsOnCompact { get; set; } = true;
     public bool ReadAlong { get; set; }
+    public double ReadAlongAdjustment { get; set; }
     public double LyricsAdjustment { get; set; }
     public bool YandexLyricsEnabled { get; set; } = true;
 }
