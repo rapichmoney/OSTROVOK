@@ -51,7 +51,7 @@ public partial class MainWindow
             Check("captioned toolbar fits window", TopNavigation.ActualWidth <= Shell.ActualWidth - 28);
             Check("header exposes eight tabs and three utility actions", toolbar.Count == 8 && TopNavigation.Children.OfType<System.Windows.Controls.Button>().Count() == 11);
             Navigation.SelectedIndex = 0; UpdateToolbar();
-            Check("selected tab uses current island palette", toolbar[0].Button.BorderThickness.Left == 1 && toolbar[0].Button.Background is SolidColorBrush selectedTab && selectedTab.Color.A == 255);
+            Check("selected tab uses current island palette", ToolbarIndicator.Visibility == Visibility.Visible && ToolbarIndicator.Background is SolidColorBrush selectedTab && selectedTab.Color.A == 255);
             toolbar[0].Button.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Controls.Control.MouseDoubleClickEvent });
             await AwaitShellAsync();
             Check("double click player collapses island and blocks hover reopening", !expanded && collapseUntilPointerLeaves);
@@ -99,8 +99,8 @@ public partial class MainWindow
                 button.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent });
                 button.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent });
             }
-            Navigation.SelectedIndex = 7; await Task.Delay(220); UpdateLayout();
-            Check("visited tabs release hover colors and only selected section stays highlighted", toolbar.All(x => x.Value.Button.Background is SolidColorBrush brush && (x.Key == 7 ? brush.Color.A > 0 : brush.Color == Colors.Transparent)) && toolbar.Count(x => x.Value.Label.IsVisible) == 1);
+            Navigation.SelectedIndex = 7; await Task.Delay(520); UpdateLayout();
+            Check("visited tabs release hover colors and only selected section stays highlighted", ToolbarIndicator.IsVisible && animatedTab == 7 && toolbar.All(x => x.Value.Button.Background is SolidColorBrush brush && brush.Color == Colors.Transparent) && toolbar.Count(x => x.Value.Label.IsVisible) == 1);
             Capture(Path.Combine(output, "single-active-tab.png"));
             Check("notes edited in control persist", store.LoadText("notes.txt") == Notes.Text);
             TaskInput.Text = "Проверить сохранение задачи"; AddTask(this, new RoutedEventArgs());
@@ -294,7 +294,7 @@ public partial class MainWindow
             ShowLyrics(longLyrics, longLyrics.Status); UpdateLyricPosition(0); await Task.Delay(80);
             UpdateLyricPosition(21); await Task.Delay(70); UpdateLayout();
             double movingOffset = LyricsScroll.VerticalOffset;
-            await Task.Delay(420); UpdateLayout();
+            await Task.Delay(680); UpdateLayout();
             Check("current lyric scroll eases into its reading position", LyricsScroll.VerticalOffset > movingOffset && !LyricsScroll.HasAnimatedProperties);
             double earlyProgress = lyricFills[4].Progress;
             UpdateLyricPosition(23);
@@ -372,7 +372,7 @@ public partial class MainWindow
                 for (int i = 3; i < pixels.Length; i += 4) outgoingAlpha = Math.Max(outgoingAlpha, pixels[i]);
             }
             Check("interrupted compact fade captures fully opaque outgoing text", outgoingAlpha >= 240, $"header={Header.IsVisible}, width={CompactTextContent.ActualWidth}, maxAlpha={outgoingAlpha}");
-            UpdateCompactText("Проверка перехода строки"); await Task.Delay(320);
+            UpdateCompactText("Проверка перехода строки"); await Task.Delay(420);
             Check("compact text fade releases its outgoing snapshot", CompactTextSnapshot.Source == null && CompactTextSnapshot.Visibility == Visibility.Collapsed && CompactTextContent.Opacity == 1);
             pausePresentation.IsActive(true, true, Environment.TickCount64); RefreshIdleContent(); await AwaitShellAsync(); UpdateLayout();
             string originalTitle = media.Title;

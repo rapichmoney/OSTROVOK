@@ -4,9 +4,11 @@ namespace DesktopIsland;
 
 public partial class MainWindow
 {
+    private bool? lastPlaybackVisual;
     private void UpdatePlaybackButton(bool playing)
     {
-        PlaybackIcon.Data = System.Windows.Media.Geometry.Parse(playing ? "M 2,2 L 8,2 L 8,22 L 2,22 Z M 14,2 L 20,2 L 20,22 L 14,22 Z" : "M 5,2 L 19,12 L 5,22 Z");
+        if (lastPlaybackVisual != playing) PolishedMotion.Swap(PlaybackIcon, () => PlaybackIcon.Data = System.Windows.Media.Geometry.Parse(playing ? "M 2,2 L 8,2 L 8,22 L 2,22 Z M 14,2 L 20,2 L 20,22 L 14,22 Z" : "M 5,2 L 19,12 L 5,22 Z"), 180, 0);
+        lastPlaybackVisual = playing;
         string action = playing ? "Пауза" : "Воспроизвести";
         PlayButton.ToolTip = action;
         System.Windows.Automation.AutomationProperties.SetName(PlayButton, action);

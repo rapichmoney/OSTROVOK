@@ -102,8 +102,8 @@ public partial class MainWindow : Window
         UpdateClipboardListener();
         tray = new Forms.NotifyIcon
         {
-            Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? System.Drawing.SystemIcons.Application,
-            Text = "Desktop Island", Visible = true
+            Icon = LoadTrayIcon(),
+            Text = "OSTROVOK", Visible = true
         };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Показать остров", null, (_, _) => Dispatcher.Invoke(Reveal));
@@ -131,7 +131,7 @@ public partial class MainWindow : Window
         if (settings.Pinned) SetExpanded(true);
         if (settings.DownloadsEnabled) StartDownloads();
         RefreshSystem(); RefreshVolume(); UpdateClock(); RefreshIdleContent(); timer.Start();
-        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
+        if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
             Reveal(); OpenPreferences(3);

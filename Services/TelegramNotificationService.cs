@@ -47,7 +47,7 @@ public sealed class TelegramNotificationService : IDisposable
             if (!lastScanSucceeded) Connected = false;
             if (Connected) { poll.Start(); Status = "Подключено. Ожидаем новые системные уведомления Telegram."; }
         }
-        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or InvalidOperationException or NotImplementedException)
         { Status = "Windows не предоставила доступ к уведомлениям (0x" + ex.HResult.ToString("X8") + ")."; }
         return Status;
     }
@@ -87,12 +87,12 @@ public sealed class TelegramNotificationService : IDisposable
                         Received?.Invoke(new(notification.Id, title, body, notification.CreationTime));
                     }
                 }
-                catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException or UnauthorizedAccessException) { }
+                catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException or UnauthorizedAccessException or NotImplementedException) { }
             }
             foreach (uint old in seen.Keys.Where(x => !present.Contains(x)).ToArray()) seen.Remove(old);
             lastScanSucceeded = true;
         }
-        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or InvalidOperationException or NotImplementedException)
         { Status = "Не удалось прочитать уведомления Windows. Подключитесь повторно."; }
         finally { scanning = false; }
     }

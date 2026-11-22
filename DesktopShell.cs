@@ -96,6 +96,7 @@ public partial class MainWindow
     {
         foreach (var (index, item) in toolbar)
         {
+            if (IsLoaded && TopNavigation.IsVisible) continue;
             item.Label.Visibility = index == Navigation.SelectedIndex ? Visibility.Visible : Visibility.Collapsed;
             var palette = CompactMaterialColors();
             Color tabColor = Color.FromRgb((byte)(palette.Top.R * .7 + 255 * .12), (byte)(palette.Top.G * .7 + 255 * .12), (byte)(palette.Top.B * .7 + 255 * .12));
@@ -110,6 +111,7 @@ public partial class MainWindow
             }
         }
         if (toolbar.TryGetValue(0, out var first)) first.Label.Text = media.Available ? "Плеер" : "Часы";
+        AnimateToolbarSelection();
         if (sectionsButton != null && sectionsLabel != null)
         {
             bool selected = !toolbar.ContainsKey(Navigation.SelectedIndex);
@@ -229,6 +231,7 @@ public partial class MainWindow
         Pin.IsChecked = settings.Pinned; StayOnTop.IsChecked = settings.Topmost; HideFullscreen.IsChecked = settings.HideInFullscreen;
         LessMotion.IsChecked = settings.ReducedMotion; Motion.Reduced = settings.ReducedMotion;
         Topmost = settings.Topmost; ApplyShellAppearance(); RefreshIdleContent();
+        foreach (var fill in lyricFills) fill.ReadAlong = settings.ReadAlong;
         RefreshTrackLyrics();
         StopShellMotion(); AnimateExpansion(expanded); SaveSettings();
     }

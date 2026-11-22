@@ -33,6 +33,8 @@ public partial class MainWindow
         MaxHeight = area.Height;
         Header.Visibility = value || HasCompactNotification ? Visibility.Collapsed : Visibility.Visible;
         TopNavigation.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        ToolbarIndicatorLayer.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        if (value) Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(UpdateToolbar));
         UpdateClock();
         var cornerFrom = Shell.CornerRadius;
         Shell.BeginAnimation(System.Windows.Controls.Border.CornerRadiusProperty, null);

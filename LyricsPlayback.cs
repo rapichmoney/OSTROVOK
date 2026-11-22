@@ -157,13 +157,15 @@ public partial class MainWindow
         {
             lyricViews[currentLyricIndex].Foreground = new SolidColorBrush(Color.FromRgb(181, 189, 198)); lyricViews[currentLyricIndex].FontWeight = FontWeights.Normal;
             System.Windows.Automation.AutomationProperties.SetItemStatus(lyricViews[currentLyricIndex], "");
-            lyricFills[currentLyricIndex].Visibility = Visibility.Collapsed;
+            var previousFill = lyricFills[currentLyricIndex];
+            Motion.Tween(previousFill, OpacityProperty, 0, 620, completed: () => { if (lyricFills.IndexOf(previousFill) != currentLyricIndex) previousFill.Visibility = Visibility.Collapsed; });
         }
         currentLyricIndex = index;
         if (index >= 0 && index < lyricViews.Count)
         {
-            var current = lyricViews[index]; current.Foreground = new SolidColorBrush(Color.FromRgb(181, 189, 198)); current.FontWeight = FontWeights.SemiBold;
+            var current = lyricViews[index]; current.Foreground = new SolidColorBrush(settings.ReadAlong ? Color.FromRgb(116, 124, 132) : Color.FromRgb(181, 189, 198)); current.FontWeight = FontWeights.SemiBold;
             lyricFills[index].Visibility = Visibility.Visible;
+            Motion.Tween(lyricFills[index], OpacityProperty, 1, 260);
             System.Windows.Automation.AutomationProperties.SetItemStatus(current, "Текущая строка");
             QueueCurrentLyricScroll();
         }
@@ -176,6 +178,7 @@ public partial class MainWindow
         if (!expanded || Navigation.SelectedIndex != 0 || lyricsResult?.Synced != true || currentLyricIndex < 0 || currentLyricIndex >= lyricFills.Count) return;
         var line = lyricsResult.Lines[currentLyricIndex];
         double end = line.EndSeconds ?? (currentLyricIndex + 1 < lyricsResult.Lines.Length ? lyricsResult.Lines[currentLyricIndex + 1].Seconds : media.Duration);
+        lyricFills[currentLyricIndex].ReadAlong = settings.ReadAlong;
         lyricFills[currentLyricIndex].Progress = end > line.Seconds ? (position + settings.LyricsAdjustment - line.Seconds) / (end - line.Seconds) : 1;
     }
     private void QueueCurrentLyricScroll(bool immediate = false)

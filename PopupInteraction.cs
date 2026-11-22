@@ -10,6 +10,7 @@ public partial class MainWindow
 
     private void TrackIslandMenu(ContextMenu menu)
     {
+        PolishedMotion.Menu(menu);
         menu.Opened += (_, _) => { openIslandMenus.Add(menu); leaveTimer.Stop(); };
         menu.Closed += (_, _) =>
         {

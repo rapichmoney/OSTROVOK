@@ -64,14 +64,16 @@
       <Grid x:Name="CompactCard" Grid.Row="0" Margin="12,8" Visibility="Collapsed" ClipToBounds="True" MouseLeftButtonDown="MoveIsland">
         <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-        <Path x:Name="CompactCardGhostIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="8,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False"/>
-        <Path x:Name="CompactCardIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="8,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/>
+        <Path x:Name="CompactCardGhostIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="2,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False"/>
+        <Path x:Name="CompactCardIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="2,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/>
         <TextBlock x:Name="CompactCardTitle" Grid.Column="1" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <TextBlock x:Name="CompactCardText" Grid.Row="1" Grid.Column="1" FontSize="13" Foreground="{StaticResource Secondary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <Button x:Name="CompactCardAction" Grid.RowSpan="2" Grid.Column="2" Content="Буфер" Style="{StaticResource Primary}" Background="#F0F1F3" Foreground="#202124" Margin="12,0,0,0" Padding="10,5" MinWidth="64" Height="30" VerticalAlignment="Center" Click="CompactCardActionClick">
           <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="15" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template>
         </Button>
+        <TextBlock x:Name="NoticeQueueCount" Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="11" Foreground="{StaticResource Secondary}" IsHitTestVisible="False"/>
       </Grid>
+      <Border x:Name="NoticeLifetime" Grid.Row="0" Height="2" Margin="24,0,24,0" VerticalAlignment="Bottom" Background="#61717F" Visibility="Collapsed" IsHitTestVisible="False" RenderTransformOrigin="0,0"><Border.RenderTransform><ScaleTransform x:Name="NoticeLifetimeScale"/></Border.RenderTransform></Border>
       <Image x:Name="CompactSnapshot" Grid.Row="0" Visibility="Collapsed" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
       <Path x:Name="FlyingTelegramPlane" Grid.Row="0" Panel.ZIndex="20" Width="20" Height="20" Stretch="Uniform" StrokeThickness="1.4" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed" IsHitTestVisible="False"/>
       <Border x:Name="ClipboardNotice" Grid.Row="1" Background="#202A33" BorderBrush="#3D5262" BorderThickness="1" CornerRadius="6" Padding="10" Margin="4,8,4,0" Visibility="Collapsed">
@@ -118,7 +120,7 @@
                   <ComboBox x:Name="Players" SelectionChanged="SelectPlayer" Margin="0,6,0,0" AutomationProperties.AutomationId="Players"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,0,0,0">
-                  <Grid Margin="0,0,0,4">
+                  <Grid x:Name="TrackIdentity" Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="112"/>
                       <ColumnDefinition/>
@@ -563,6 +565,7 @@
         <ListBoxItem Content="Настройки"/>
         <ListBoxItem Content="Погода"/>
       </ListBox>
+      <Canvas x:Name="ToolbarIndicatorLayer" Grid.Row="0" IsHitTestVisible="False" Visibility="Collapsed"><Border x:Name="ToolbarIndicator" BorderThickness="1" CornerRadius="6"/></Canvas>
       <DockPanel x:Name="TopNavigation" Grid.Row="0" LastChildFill="False" Margin="4,14,4,4" Visibility="Collapsed" MouseLeftButtonDown="MoveIsland"/>
       <System:Thumb xmlns:System="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework" x:Name="CompactLeftHandle" Grid.RowSpan="4" Width="18" Margin="-14,0,0,0" HorizontalAlignment="Left" Cursor="SizeWE" DragStarted="CompactResizeStarted" DragDelta="CompactResizeDelta" DragCompleted="CompactResizeCompleted" MouseDoubleClick="ResetCompactWidth" ToolTip="Изменить ширину свёрнутого острова" AutomationProperties.Name="Левый край свёрнутого острова">
         <System:Thumb.Template><ControlTemplate TargetType="System:Thumb"><Border Background="Transparent"></Border></ControlTemplate></System:Thumb.Template>

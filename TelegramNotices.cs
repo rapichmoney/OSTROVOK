@@ -29,6 +29,7 @@ public partial class MainWindow
         if (telegramQueue.Count >= 20) telegramQueue.Dequeue();
         telegramQueue.Enqueue(message);
         if (!telegramNoticeActive) ShowNextTelegramNotice();
+        else UpdateNotificationQueue();
     }
 
     private void ShowNextTelegramNotice()

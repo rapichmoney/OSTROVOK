@@ -24,7 +24,9 @@ public partial class MainWindow
         CompactTrack.Text = text; CompactLyricFill.Visibility = Visibility.Collapsed;
         if (animate)
         {
-            Motion.Enter(CompactTextContent, 3, 260);
+            Motion.Enter(CompactTextContent, 14, 380);
+            var outgoing = new TranslateTransform(); CompactTextSnapshot.RenderTransform = outgoing;
+            Motion.Tween(outgoing, TranslateTransform.YProperty, -14, 380);
             Motion.Tween(CompactTextSnapshot, OpacityProperty, 0, 180, completed: () =>
             {
                 if (revision != compactTextRevision) return;

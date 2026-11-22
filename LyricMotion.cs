@@ -16,7 +16,7 @@ internal static class LyricMotion
         viewer.BeginAnimation(OffsetProperty, null);
         viewer.SetValue(OffsetProperty, offset);
         if (immediate || !Motion.Enabled || Math.Abs(from - offset) > viewer.ViewportHeight * 1.5) { viewer.ScrollToVerticalOffset(offset); return; }
-        var animation = new DoubleAnimation(from, offset, TimeSpan.FromMilliseconds(380))
+        var animation = new DoubleAnimation(from, offset, TimeSpan.FromMilliseconds(620))
         { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, FillBehavior = FillBehavior.Stop };
         animation.Completed += (_, _) => { if (revision == (int)viewer.GetValue(RevisionProperty)) viewer.BeginAnimation(OffsetProperty, null); };
         viewer.BeginAnimation(OffsetProperty, animation);

@@ -52,6 +52,22 @@ jobs:
           $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
           if ($report.failures -ne 0 -or $report.checks.Count -eq 0) { throw 'Invalid self-test report' }
           Write-Output "Passed $($report.checks.Count) application checks"
+      - name: Check interface motion
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'motion-verification'
+          $exe = Join-Path $PWD 'artifacts/portable/DesktopIsland.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList "--verify-motion --output `"$output`"" -WindowStyle Hidden -PassThru
+          if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'Motion checks timed out' }
+          $report = Get-Content -LiteralPath (Join-Path $output 'motion-report.json') -Raw | ConvertFrom-Json
+          foreach ($check in $report.checks) {
+            if (-not $check.pass) {
+              $message = ($check.name + ': ' + $check.detail).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error::$message"
+            }
+          }
+          if ($process.ExitCode -ne 0 -or $report.failures -ne 0 -or $report.checks.Count -eq 0) { throw 'Motion checks failed' }
+          Write-Output "Passed $($report.checks.Count) interface checks"
       - name: Publish release
         shell: pwsh
         env:

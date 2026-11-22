@@ -16,6 +16,9 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            Check("Read Along is off by default", !new AppSettings().ReadAlong);
+            store.Save("read-along.json", new AppSettings { ReadAlong = true });
+            Check("Read Along preference survives restart", store.Load("read-along.json", () => new AppSettings()).ReadAlong);
             Check("automatic paste is opt in", !new AppSettings().AutoPasteDoubleCopy);
             store.Save("auto-paste-settings.json", new AppSettings { AutoPasteDoubleCopy = true });
             Check("automatic paste choice survives settings reload", store.Load("auto-paste-settings.json", () => new AppSettings()).AutoPasteDoubleCopy);

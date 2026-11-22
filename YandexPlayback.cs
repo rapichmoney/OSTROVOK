@@ -34,6 +34,7 @@ public partial class MainWindow
         }
         finally { pollingYandex = false; }
     }
+    private bool? lastLikedVisual;
     private void UpdateYandexRating()
     {
         var visible = IsYandexSelected ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
@@ -41,9 +42,18 @@ public partial class MainWindow
         YandexLikeButton.IsEnabled = !ratingYandex && yandexPlayback?.CanLike == true;
         YandexDislikeButton.IsEnabled = !ratingYandex && yandexPlayback?.CanDislike == true;
         bool liked = yandexPlayback?.Liked == true, disliked = yandexPlayback?.Disliked == true;
-        YandexLikeIcon.Data = (System.Windows.Media.Geometry)FindResource(liked ? "Yandex_liked_xs" : "Yandex_like_xs");
+        if (lastLikedVisual != liked)
+            {
+            YandexLikeIcon.Clip = null;
+            if (liked) PolishedMotion.FillFromBottom(YandexLikeIcon, () => YandexLikeIcon.Data = (System.Windows.Media.Geometry)FindResource("Yandex_liked_xs"));
+            else PolishedMotion.Swap(YandexLikeIcon, () => YandexLikeIcon.Data = (System.Windows.Media.Geometry)FindResource("Yandex_like_xs"), 300, 0);
+        }
+        lastLikedVisual = liked;
         YandexDislikeIcon.Data = (System.Windows.Media.Geometry)FindResource(disliked ? "Yandex_disliked_xs" : "Yandex_dislike_xs");
-        YandexLikeIcon.Fill = (System.Windows.Media.Brush)FindResource(liked ? "Ink" : "Secondary");
+        var likeColor = liked ? System.Windows.Media.Color.FromRgb(233, 78, 96) : ((System.Windows.Media.SolidColorBrush)FindResource("Secondary")).Color;
+        if (YandexLikeIcon.Fill is not System.Windows.Media.SolidColorBrush likeBrush || likeBrush.IsFrozen)
+        { likeBrush = new System.Windows.Media.SolidColorBrush(likeColor); YandexLikeIcon.Fill = likeBrush; }
+        if (likeBrush.Color != likeColor) PolishedMotion.Color(likeBrush, likeColor, 300);
         YandexDislikeIcon.Fill = (System.Windows.Media.Brush)FindResource(disliked ? "Ink" : "Secondary");
         YandexLikeButton.ToolTip = liked ? "Убрать из «Мне нравится»" : "Нравится — добавить в «Мне нравится»";
         System.Windows.Automation.AutomationProperties.SetItemStatus(YandexLikeButton, liked ? "Нравится" : "Без оценки");

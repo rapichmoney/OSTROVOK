@@ -136,6 +136,8 @@ public static class Motion
                 button.PreviewKeyDown += (_, args) => { if (args.Key == Key.Space) Press(button, true); };
                 button.PreviewKeyUp += (_, args) => { if (args.Key == Key.Space) Press(button, false); };
                 break;
+            case "Slider" when element is Slider slider:
+                SliderMotion.Attach(slider); break;
             case "Item":
                 element.Loaded += (_, _) => Enter(element, 5, 160);
                 break;
@@ -178,8 +180,11 @@ public static class Motion
     private static void Press(Button button, bool pressed)
     {
         if (button.Template.FindName("Frame", button) is not Border frame) return;
-        if (frame.RenderTransform is not TranslateTransform) frame.RenderTransform = new TranslateTransform();
-        Tween((TranslateTransform)frame.RenderTransform, TranslateTransform.YProperty, pressed ? 1 : 0, 85);
+        if (frame.RenderTransform is not ScaleTransform) frame.RenderTransform = new ScaleTransform(1, 1);
+        frame.RenderTransformOrigin = new Point(.5, .5);
+        var scale = (ScaleTransform)frame.RenderTransform;
+        Tween(scale, ScaleTransform.ScaleXProperty, pressed ? .93 : 1, pressed ? 70 : 160);
+        Tween(scale, ScaleTransform.ScaleYProperty, pressed ? .93 : 1, pressed ? 70 : 160);
     }
     private static void CheckChanged(CheckBox check, bool value)
     {
@@ -195,7 +200,14 @@ public static class Motion
         if (shift.IsFrozen) { shift = shift.Clone(); knob.RenderTransform = shift; }
         double target = check.IsChecked == true ? 18 : 0;
         if (instant || !Enabled) { shift.BeginAnimation(TranslateTransform.XProperty, null); shift.X = target; }
-        else Tween(shift, TranslateTransform.XProperty, target, 260, easingOverride: new MotionDynamics.PhysicalResponse(.86, 12));
+        else Tween(shift, TranslateTransform.XProperty, target, 280);
+        if (check.Template.FindName("SwitchTrack", check) is Border track)
+        {
+            var color = ((SolidColorBrush)check.FindResource(check.IsChecked == true ? "Accent" : "SwitchOff")).Color;
+            var from = (track.Background as SolidColorBrush)?.Color ?? color;
+            var brush = new SolidColorBrush(from); track.Background = brush;
+            PolishedMotion.Color(brush, color, instant ? 0 : 280);
+        }
     }
 }
 

@@ -16,6 +16,7 @@ public partial class MainWindow
     private void UpdateCompactNotification(bool resizeShell)
     {
         bool active = HasCompactNotification;
+        NoticeLifetime.Visibility = active && !expanded && Motion.Enabled ? Visibility.Visible : Visibility.Collapsed;
         if (active) CancelTrackVisualHold();
         bool transition = compactVisualNotice != active;
         if (transition) { CaptureCompactTransition(active); compactVisualNotice = active; }
@@ -27,7 +28,10 @@ public partial class MainWindow
             string title = telegramNoticeActive ? "Telegram · " + TelegramNoticeTitle.Text : ClipboardNoticeTitle.Text;
             string body = telegramNoticeActive ? TelegramNoticeText.Text : ClipboardNoticeText.Text;
             string signature = title + "\n" + body;
-            CompactCardTitle.Text = title; CompactCardText.Text = body.Replace('\r', ' ').Replace('\n', ' ');
+            if (CompactCardTitle.Text != title) PolishedMotion.Swap(CompactCardTitle, () => CompactCardTitle.Text = title, 380, 6);
+            string flatBody = body.Replace('\r', ' ').Replace('\n', ' ');
+            if (CompactCardText.Text != flatBody) PolishedMotion.Swap(CompactCardText, () => CompactCardText.Text = flatBody, 380, 6);
+            UpdateNotificationQueue();
             CompactCardAction.Content = telegramNoticeActive ? "Открыть" : copiedNoticeFiles.Length > 0 ? "На полку" : "Буфер";
             if (signature != compactNoticeSignature)
             {
@@ -44,8 +48,7 @@ public partial class MainWindow
                 CompactCardIcon.Fill = telegramNoticeActive ? new SolidColorBrush(Color.FromArgb(32, 240, 244, 248)) : Brushes.Transparent;
                 CompactCardIcon.Stroke = (Brush)FindResource(telegramNoticeActive ? "Ink" : "Accent");
                 CompactCardIcon.Data = Geometry.Parse(telegramNoticeActive ? "M 22,2 L 15,22 L 11,13 L 2,9 Z M 22,2 L 11,13" : busy ? "M 12,2 A 10,10 0 1 1 2,12" : noticeEntry?.Translation.Length > 0 ? "M 2,5 L 15,5 M 8,2 L 8,5 M 5,5 C 5,11 9,15 14,17 M 12,5 C 12,11 8,15 2,17 M 14,22 L 19,10 L 24,22 M 16,18 L 22,18" : "M 7,7 L 21,7 L 21,23 L 7,23 Z M 4,17 L 2,17 L 2,2 L 16,2 L 16,4");
-                Motion.Enter(CompactCardTitle, 0, 240);
-                Motion.Enter(CompactCardText, 4, 330);
+                StartNoticeLifetime(telegramNoticeActive ? telegramNoticeTimer.Interval : clipboardNoticeTimer.Interval);
                 CompactCardGhostIcon.BeginAnimation(OpacityProperty, null); CompactCardGhostIcon.Opacity = 0;
                 if (!telegramNoticeActive && !busy && noticeEntry?.Translation.Length == 0 && Motion.Enabled)
                 {
@@ -55,7 +58,16 @@ public partial class MainWindow
                     Motion.Tween(ghostShift, TranslateTransform.XProperty, -5, 440, 80);
                     Motion.Tween(ghostShift, TranslateTransform.YProperty, -4, 440, 80);
                 }
-                if (telegramNoticeActive) FlyTelegramPlane();
+                if (!telegramNoticeActive && !busy && noticeEntry?.Translation.Length > 0)
+                {
+                    CompactCardIcon.Data = Geometry.Parse("M 2,12 L 9,19 L 23,3");
+                    CompactCardIcon.StrokeDashArray = new DoubleCollection { 24, 24 };
+                    CompactCardIcon.StrokeDashOffset = 24;
+                    Motion.Tween(CompactCardIcon, System.Windows.Shapes.Shape.StrokeDashOffsetProperty, 0, 340, completed: () => CompactCardIcon.StrokeDashArray = null);
+                }
+                else { CompactCardIcon.StrokeDashArray = null; CompactCardIcon.StrokeDashOffset = 0; }
+                if (telegramNoticeActive && transition) FlyTelegramPlane();
+                else if (telegramNoticeActive) CompactCardIcon.Opacity = 1;
                 else if (!busy) Motion.Pop(CompactCardIcon, .65, 460);
                 else
                 {
@@ -69,6 +81,7 @@ public partial class MainWindow
             StopTelegramPlaneFlight();
             compactNoticeSignature = "";
             CompactCardTitle.Text = CompactCardText.Text = "";
+            NoticeLifetime.Visibility = Visibility.Collapsed; NoticeLifetimeScale.ApplyAnimationClock(ScaleTransform.ScaleXProperty, null); noticeLifetimeClock = null;
         }
         if (transition && !expanded && IsLoaded) Motion.RevealContent(active ? (FrameworkElement)CompactCard : Header, 330, 150);
         if (!resizeShell || expanded || !IsLoaded || draggingWindow) return;
@@ -87,9 +100,11 @@ public partial class MainWindow
     private void PauseCompactNotificationTimers()
     {
         clipboardNoticeTimer.Stop(); telegramNoticeTimer.Stop();
+        noticeLifetimeClock?.Controller?.Pause();
     }
     private void ResumeCompactNotificationTimers()
     {
+        noticeLifetimeClock?.Controller?.Resume();
         if (telegramNoticeActive) telegramNoticeTimer.Start();
         if (clipboardNoticeActive) clipboardNoticeTimer.Start();
     }
