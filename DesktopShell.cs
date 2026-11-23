@@ -277,6 +277,18 @@ public partial class MainWindow
     internal bool AutostartEnabled => Autostart.IsChecked == true;
     internal void ChooseDownloads() => ChooseDownloadFolder(this, new RoutedEventArgs());
     internal void ShowDataFolder() => OpenDataFolder(this, new RoutedEventArgs());
+    internal void ShowDiagnosticsFolder()
+    {
+        if (App.VerificationMode) return;
+        try
+        {
+            string folder = App.Diagnostics?.Root ?? DiagnosticLog.DefaultRoot;
+            Directory.CreateDirectory(folder);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        { App.Diagnostics?.Error(DiagnosticArea.Storage, ex); Status.Text = "Не удалось открыть папку журналов"; }
+    }
     internal void PreviewIsland() { Reveal(); Navigation.SelectedIndex = 0; }
     internal void ShowWeatherPage() { preferences?.Hide(); Reveal(); Navigation.SelectedIndex = 10; }
 

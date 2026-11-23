@@ -11,6 +11,7 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (RunDiagnosticProbe()) return;
         WindowBrand.InitializeProcess();
         if (e.Args.Contains("--repair-yandex"))
         {
@@ -30,9 +31,10 @@ public partial class App : System.Windows.Application
             instance = new Mutex(true, "Local\\DesktopIsland-" + Environment.UserName, out bool first);
             showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\DesktopIsland-Show-" + Environment.UserName);
             if (!first) { showSignal.Set(); Shutdown(); return; }
+            Diagnostics?.BeginSession();
         }
         var window = new MainWindow(); MainWindow = window; window.Show();
         if (showSignal != null) wait = ThreadPool.RegisterWaitForSingleObject(showSignal, (_, _) => Dispatcher.BeginInvoke(window.Reveal), null, Timeout.Infinite, false);
     }
-    protected override void OnExit(ExitEventArgs e) { wait?.Unregister(null); showSignal?.Dispose(); instance?.Dispose(); base.OnExit(e); }
+    protected override void OnExit(ExitEventArgs e) { Diagnostics?.EndSession(e.ApplicationExitCode); wait?.Unregister(null); showSignal?.Dispose(); instance?.Dispose(); base.OnExit(e); }
 }

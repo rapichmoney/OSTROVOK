@@ -176,7 +176,7 @@ public partial class MainWindow : Window
             Opacity = hideForFullscreen ? 0 : 1;
             IsHitTestVisible = !hideForFullscreen;
         }
-        catch (Exception ex) { Status.Text = "Обновление: " + ex.Message; }
+        catch (Exception ex) { App.Diagnostics?.Error(DiagnosticArea.UiTick, ex); Status.Text = "Обновление: " + ex.Message; }
         finally { ticking = false; }
     }
 

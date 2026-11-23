@@ -56,7 +56,8 @@ internal sealed partial class SettingsWindow : Window
         brand.Children.Add(new TextBlock { Text = "Настройки · " + typeof(App).Assembly.GetName().Version!.ToString(3), Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 4, 0, 0) });
         ((TextBlock)brand.Children[1]).SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         DockPanel.SetDock(brand, Dock.Top); sidebar.Children.Add(brand);
-        var footer = new TextBlock { Text = "Изменения сохраняются\nна этом компьютере", Foreground = (Brush)FindResource("Muted"), FontSize = 12, Margin = new Thickness(20, 12, 12, 20) };
+        var footer = new TextBlock { Text = "Сохраняется\nна этом компьютере", Foreground = (Brush)FindResource("Muted"), FontSize = 11, LineHeight = 16, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(20, 12, 12, 20) };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(footer, "SettingsSaveStatus");
         footer.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         DockPanel.SetDock(footer, Dock.Bottom); sidebar.Children.Add(footer);
         foreach (var title in new[] { "Остров", "Внешний вид", "Погода", "Данные", "Система", "Музыка", "Вкладки" }) navigation.Items.Add(title);
@@ -268,6 +269,9 @@ internal sealed partial class SettingsWindow : Window
                 if (island.UpdateStatus.StartsWith("Доступна", StringComparison.Ordinal)) Action(content, "Скачать и установить", async () => await island.InstallAppUpdateAsync());
                 Section(content, "Версия"); Hint(content, "OSTROVOK " + typeof(App).Assembly.GetName().Version!.ToString(3) + " · Windows x64");
                 Hint(content, "Код приложения написан отдельно. Данные и настройки Dyland не импортируются.");
+                Section(content, "Журнал и сбои");
+                Hint(content, "Журнал работы и отчёты о сбоях сохраняются только на этом ПК. Автоотправки нет.");
+                Action(content, "Открыть папку журналов", island.ShowDiagnosticsFolder);
                 Action(content, "Показать остров", island.PreviewIsland);
                 Action(content, "Открыть папку данных", island.ShowDataFolder);
                 break;

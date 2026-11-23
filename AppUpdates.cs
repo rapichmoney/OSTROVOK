@@ -19,6 +19,7 @@ public partial class MainWindow
     {
         if (App.VerificationMode || checkingUpdate || installingUpdate || closing || !manual && !settings.CheckUpdates) return;
         checkingUpdate = true; nextUpdateCheck = DateTime.UtcNow.AddHours(4);
+        App.Diagnostics?.Event(DiagnosticEvent.UpdateCheckStarted, DiagnosticArea.Updates);
         try
         {
             availableRelease = await appUpdates.CheckAsync();
@@ -29,7 +30,7 @@ public partial class MainWindow
             UpdateCompactNotification(true);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException or KeyNotFoundException)
-        { updateStatus = "Не удалось проверить обновления. Повторите позже."; }
+        { App.Diagnostics?.Error(DiagnosticArea.Updates, ex); updateStatus = "Не удалось проверить обновления. Повторите позже."; }
         finally { checkingUpdate = false; }
     }
     private void RenderUpdateNotice()
@@ -60,6 +61,7 @@ public partial class MainWindow
     {
         if (installingUpdate || availableRelease == null || App.VerificationMode) return;
         installingUpdate = true; UpdateCompactNotification(true);
+        App.Diagnostics?.Event(DiagnosticEvent.UpdateInstallStarted, DiagnosticArea.Updates);
         try
         {
             string target = Path.GetDirectoryName(Environment.ProcessPath!)!;
@@ -87,6 +89,7 @@ public partial class MainWindow
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or HttpRequestException or TaskCanceledException or System.ComponentModel.Win32Exception or InvalidOperationException or InvalidDataException)
         {
+            App.Diagnostics?.Error(DiagnosticArea.Updates, ex);
             installingUpdate = false; updateDetail = "Не удалось установить. Проверьте соединение и доступ к папке приложения.";
             updateStatus = updateDetail; UpdateCompactNotification(true);
         }

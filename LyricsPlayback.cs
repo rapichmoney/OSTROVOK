@@ -55,6 +55,7 @@ public partial class MainWindow
         var track = new LyricTrack(media.Title, media.Artist, media.Album, media.Duration);
         string requestKey = media.Source + "\n" + track.Key + "\n" + settings.YandexLyricsEnabled;
         if (!force && requestedLyricsKey == requestKey) return;
+        App.Diagnostics?.Event(DiagnosticEvent.LyricsRequested, DiagnosticArea.Lyrics);
         requestedLyricsKey = requestKey; localLyrics = false;
         int revision = ++lyricsRevision;
         lyricCancellation?.Cancel(); lyricCancellation?.Dispose(); lyricCancellation = new CancellationTokenSource();
@@ -85,6 +86,7 @@ public partial class MainWindow
         catch (OperationCanceledException) { if (!token.IsCancellationRequested && revision == lyricsRevision && !closing) ShowLyrics(null, "Сервис текста не ответил. Повторите поиск в настройках музыки."); }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
         {
+            App.Diagnostics?.Error(DiagnosticArea.Lyrics, ex);
             if (revision == lyricsRevision && !closing && !token.IsCancellationRequested) ShowLyrics(null, "Не удалось получить текст. Повторите поиск в настройках музыки.");
         }
     }
@@ -119,6 +121,7 @@ public partial class MainWindow
         if (!loading) lyricsReadyVisualKey = CurrentVisualKey;
         LyricMotion.Stop(LyricsScroll);
         lyricsResult = result; currentLyricIndex = -1; lyricViews.Clear(); lyricFills.Clear(); LyricsLines.Children.Clear();
+        if (!loading) App.Diagnostics?.Event(result?.Synced == true || !string.IsNullOrWhiteSpace(result?.PlainText) ? DiagnosticEvent.LyricsReady : DiagnosticEvent.LyricsMissing, DiagnosticArea.Lyrics, result?.Lines.Length ?? 0);
         LyricsStatus.Text = result?.Synced == true ? "Текст песни" : !string.IsNullOrWhiteSpace(result?.PlainText) ? "Текст без таймкодов" : result != null ? "Текст песни не найден" : status.StartsWith("Не удалось", StringComparison.Ordinal) ? "Текст песни недоступен" : status;
         LyricsStatus.Visibility = PlayerHasLyrics ? Visibility.Collapsed : Visibility.Visible;
         LyricsStatus.ToolTip = status;

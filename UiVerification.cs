@@ -179,6 +179,12 @@ public partial class MainWindow
             if (preferences?.Content is FrameworkElement settingsVisual)
             {
                 CaptureVisual(settingsVisual, Path.Combine(output, "settings-window.png"));
+                var saveFooter = VisualDescendants<System.Windows.Controls.TextBlock>(settingsVisual).Single(x => System.Windows.Automation.AutomationProperties.GetAutomationId(x) == "SettingsSaveStatus");
+                foreach (string font in new[] { InterfaceFonts.Aminahs, "Segoe UI" })
+                {
+                    double longest = saveFooter.Text.Split('\n').Max(line => new System.Windows.Media.FormattedText(line, System.Globalization.CultureInfo.GetCultureInfo("ru-RU"), FlowDirection.LeftToRight, new Typeface(InterfaceFonts.Resolve(font), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), saveFooter.FontSize, Brushes.White, 1).WidthIncludingTrailingWhitespace);
+                    Check("settings footer text fits without clipping: " + font, longest <= saveFooter.ActualWidth + .5 && saveFooter.TextWrapping == TextWrapping.Wrap);
+                }
                 Check("settings use island colors instead of a fixed background", preferences!.Background is LinearGradientBrush);
                 Check("settings use native minimize maximize and close controls", preferences!.WindowStyle == WindowStyle.SingleBorderWindow && preferences.ResizeMode == ResizeMode.CanResize);
                 Check("settings remain above their island owner", ReferenceEquals(preferences.Owner, this) && preferences.Topmost == Topmost);
