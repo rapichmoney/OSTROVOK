@@ -40,8 +40,8 @@ public partial class MainWindow
             }
             settings.SetupVersion = 1; SaveSettings();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or InvalidOperationException)
-        { connectionSummary = "Не все подключения доступны. Проверьте разделы «Музыка» и «Данные»."; AddActivity("Проверка подключений", connectionSummary); }
+        catch (Exception ex) when (YandexLaunchSetup.IsRecoverable(ex))
+        { App.Diagnostics?.Error(DiagnosticArea.Connections, ex); connectionSummary = "Не все подключения доступны. Проверьте разделы «Музыка» и «Данные»."; AddActivity("Проверка подключений", connectionSummary); }
         finally { settingUp = false; }
     }
     private void RefreshGamepad()

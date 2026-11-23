@@ -6,8 +6,8 @@ using System.Text.Json.Serialization;
 
 namespace DesktopIsland.Services;
 
-internal enum DiagnosticEvent { AppStarted, AppStopped, Error, Crash, UnexpectedExit, LyricsRequested, LyricsReady, LyricsMissing, UpdateCheckStarted, UpdateInstallStarted }
-internal enum DiagnosticArea { Application, Dispatcher, BackgroundThread, UnobservedTask, Storage, UiTick, Lyrics, Updates }
+internal enum DiagnosticEvent { AppStarted, AppStopped, Error, Crash, UnexpectedExit, LyricsRequested, LyricsReady, LyricsMissing, UpdateCheckStarted, UpdateInstallStarted, YandexShortcutSkipped }
+internal enum DiagnosticArea { Application, Dispatcher, BackgroundThread, UnobservedTask, Storage, UiTick, Lyrics, Updates, Connections }
 
 internal sealed class DiagnosticLog
 {

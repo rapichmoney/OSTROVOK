@@ -18,6 +18,7 @@ internal static class SelfTests
             var store = new LocalStore(root);
             await UpdateTests.RunAsync(root, (name, pass) => Check(name, pass));
             await DiagnosticTests.RunAsync(root, (name, pass) => Check(name, pass));
+            YandexLaunchSetupTests.Run(root, (name, pass) => Check(name, pass));
             foreach (var display in new[] {(W:1280d,H:680d),(W:800d,H:560d),(W:640d,H:440d),(W:1920d,H:1040d)})
             {
                 double fit = DisplayLayout.Scale(1.5, 440, 740, display.W, display.H);
