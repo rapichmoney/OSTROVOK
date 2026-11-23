@@ -68,6 +68,15 @@ jobs:
           }
           if ($process.ExitCode -ne 0 -or $report.failures -ne 0 -or $report.checks.Count -eq 0) { throw 'Motion checks failed' }
           Write-Output "Passed $($report.checks.Count) interface checks"
+      - name: Save failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports
+          path: |
+            ${{ runner.temp }}/core-report.json
+            ${{ runner.temp }}/motion-verification/motion-report.json
+          if-no-files-found: ignore
       - name: Publish release
         shell: pwsh
         env:
