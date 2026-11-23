@@ -29,7 +29,7 @@ public partial class MainWindow
         };
         if (App.VerificationMode) return;
         usbPoll.Start();
-        _ = ScanUsbAsync(); // Establish a silent baseline for devices already connected.
+        _ = ScanUsbAsync();
     }
 
     private void UsbDevicesChanged()
@@ -51,7 +51,7 @@ public partial class MainWindow
                 usbScanAgain = false;
                 var token = usbCancellation.Token;
                 var identities = await Task.Run(() => UsbIphoneMonitor.ReadConnected(token), token);
-                if (!closing && usbConnections.Observe(identities) > 0) ShowIphoneNotice();
+                if (!closing) ApplyUsbSnapshot(identities);
             } while (usbScanAgain && !closing);
         }
         catch (OperationCanceledException) { }
@@ -64,7 +64,29 @@ public partial class MainWindow
     {
         if (closing) return;
         deviceNoticeTimer.Stop(); deviceNoticeActive = true;
+        App.Diagnostics?.Event(DiagnosticEvent.UsbNoticeShown, DiagnosticArea.Devices, usbConnections.Count);
         UpdateClipboardNoticeVisibility();
+    }
+
+    private void ApplyUsbSnapshot(string[] identities)
+    {
+        int before = usbConnections.Count;
+        int arrived = usbConnections.Observe(identities);
+        UsbPhoneStatus.Visibility = usbConnections.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UsbPhoneStatus.ToolTip = usbConnections.Count > 1 ? "iPhone по USB: " + usbConnections.Count : "iPhone подключён по USB";
+        if (before != usbConnections.Count)
+        {
+            App.Diagnostics?.Event(DiagnosticEvent.UsbConnectionCount, DiagnosticArea.Devices, usbConnections.Count);
+            if (IsLoaded && !expanded && !HasCompactNotification) UpdateCompactNotification(true);
+        }
+        if (arrived > 0) ShowIphoneNotice();
+        else if (usbConnections.Count == 0 && deviceNoticeActive) DismissDeviceNotice(this, EventArgs.Empty);
+    }
+
+    private void OpenIphoneStatus(object sender, RoutedEventArgs e)
+    {
+        if (usbConnections.Count > 0) ShowIphoneNotice();
+        e.Handled = true;
     }
 
     private void DismissDeviceNotice(object? sender, EventArgs e)

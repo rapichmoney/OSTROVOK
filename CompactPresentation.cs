@@ -26,7 +26,7 @@ public partial class MainWindow
         {
             double scale = Math.Clamp(settings.CompactScale, 75, 150) / 100;
             if (settings.MiniMode) return CompactWidth;
-            if (!HasCompactTrack) return Math.Min(CompactWidth, 318 * scale);
+            if (!HasCompactTrack) return Math.Min(CompactWidth, (318 + (usbConnections.Count > 0 ? 26 : 0)) * scale);
             if (lyricsLoading && lyricsPendingWidth > 0) return Math.Min(CompactWidth, lyricsPendingWidth * scale);
             if (settings.LyricsOnCompact && lyricsResult?.Synced == true) return CompactWidth;
             if (compactMeasuredTitle != CompactTrackCaption)
@@ -36,7 +36,7 @@ public partial class MainWindow
                     new Typeface(FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 13, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip).WidthIncludingTrailingWhitespace;
             }
             double maximum = Math.Min(CompactWidth / scale, 560);
-            return Math.Clamp(Math.Ceiling(compactTitleWidth + 116), Math.Min(220, maximum), maximum) * scale;
+            return Math.Clamp(Math.Ceiling(compactTitleWidth + 116 + (usbConnections.Count > 0 ? 26 : 0)), Math.Min(220, maximum), maximum) * scale;
         }
     }
 

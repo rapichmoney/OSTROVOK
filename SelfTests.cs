@@ -17,10 +17,10 @@ internal static class SelfTests
         {
             var store = new LocalStore(root);
             var phones = new UsbIphoneConnections();
-            Check("USB startup baseline does not announce an already connected iPhone", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 0);
+            Check("USB startup announces an already connected iPhone and retains its presence", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 1 && phones.Count == 1);
             Check("USB interfaces and repeated Windows events do not duplicate notifications", phones.Observe(["usb\\vid_05ac&pid_12a8\\a", "USB\\VID_05AC&PID_12A8\\A"]) == 0);
             Check("a second iPhone is announced once", phones.Observe(["USB\\VID_05AC&PID_12A8\\A", "USB\\VID_05AC&PID_12A8\\B"]) == 1);
-            Check("disconnect is silent", phones.Observe([]) == 0);
+            Check("disconnect is silent and clears connected status", phones.Observe([]) == 0 && phones.Count == 0);
             Check("physical reconnection announces the phone again", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 1);
             Check("iPhone identification requires both its name and Apple USB ancestry", UsbIphoneConnections.IsIphone("Apple iPhone", "USB\\VID_05AC&PID_12A8\\A") && !UsbIphoneConnections.IsIphone("Apple iPad", "USB\\VID_05AC&PID_12AB\\A") && !UsbIphoneConnections.IsIphone("iPhone", "BTHENUM\\A") && !UsbIphoneConnections.IsIphone("iPhone", "USB\\VID_1234&PID_0001\\A"));
             Check("native USB enumeration returns unique nonempty identities", UsbIphoneMonitor.ReadConnected(System.Threading.CancellationToken.None) is var nativePhones && nativePhones.All(x => x.Length > 0) && nativePhones.Distinct(StringComparer.OrdinalIgnoreCase).Count() == nativePhones.Length);

@@ -8,7 +8,8 @@ public partial class MainWindow
         Motion.Reduced = false;
         SetExpanded(false); await AwaitShellAsync();
         int tab = Navigation.SelectedIndex, entries = clipboard.Count;
-        ShowIphoneNotice(); UpdateLayout();
+        ApplyUsbSnapshot(["USB\\VID_05AC&PID_12A8\\test-phone"]); UpdateLayout();
+        check("an iPhone already connected on startup triggers a notice", DeviceNoticeVisible && usbConnections.Count == 1 && UsbPhoneStatus.Visibility == Visibility.Visible, "");
         check("iPhone notice uses a static phone icon without an action button", DeviceNoticeVisible && CompactCard.IsVisible && CompactCardTitle.Text == "iPhone подключён" && CompactCardText.Text == "По USB" && CompactCardAction.Visibility == Visibility.Collapsed && !CompactCardIcon.HasAnimatedProperties && !CompactCard.HasAnimatedProperties && !shellMoving && CompactSnapshot.Source == null, "");
         check("device notification does not navigate or use clipboard history", Navigation.SelectedIndex == tab && clipboard.Count == entries, "");
         check("device notification hides playback header and fits available space", Header.Visibility == Visibility.Collapsed && CompactCardTitle.ActualWidth > 100 && Height <= CompactPresentationHeight + .1, "");
@@ -29,6 +30,14 @@ public partial class MainWindow
         var watch = System.Diagnostics.Stopwatch.StartNew();
         while (deviceNoticeActive && watch.Elapsed < TimeSpan.FromSeconds(6)) await Task.Delay(50);
         check("USB notice expires after five seconds and restores compact content instantly", !deviceNoticeActive && Header.IsVisible && !CompactCard.IsVisible && !shellMoving && CompactSnapshot.Source == null && watch.Elapsed.TotalSeconds >= 4.9, watch.Elapsed.TotalSeconds.ToString("0.00"));
+        UpdateLayout();
+        var phoneBounds = UsbPhoneStatus.TransformToAncestor(Header).TransformBounds(new Rect(UsbPhoneStatus.RenderSize));
+        check("connected iPhone keeps a visible status icon inside the compact header", UsbPhoneStatus.IsVisible && phoneBounds.Right <= Header.ActualWidth && phoneBounds.Left >= 0, "");
+        Capture(Path.Combine(output, "iphone-usb-status.png"));
+        UsbPhoneStatus.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+        check("clicking phone status reopens its static notification", DeviceNoticeVisible && CompactCardTitle.Text == "iPhone подключён" && !CompactCardIcon.HasAnimatedProperties, "");
+        ApplyUsbSnapshot([]); UpdateLayout();
+        check("unplugging clears both status icon and stale connection notice", usbConnections.Count == 0 && UsbPhoneStatus.Visibility == Visibility.Collapsed && !deviceNoticeActive && Header.IsVisible, "");
         Motion.Reduced = reduced;
     }
 }

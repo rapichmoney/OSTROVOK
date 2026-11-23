@@ -9,11 +9,12 @@ namespace DesktopIsland.Services;
 internal sealed class UsbIphoneConnections
 {
     private HashSet<string>? connected;
+    internal int Count => connected?.Count ?? 0;
 
     internal int Observe(IEnumerable<string> identities)
     {
         var current = identities.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        int arrived = connected == null ? 0 : current.Count(id => !connected.Contains(id));
+        int arrived = connected == null ? current.Count : current.Count(id => !connected.Contains(id));
         connected = current;
         return arrived;
     }
