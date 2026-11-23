@@ -9,11 +9,25 @@ public partial class MainWindow
     private bool compactNoticeGeometryActive;
     private string compactNoticeSignature = "";
     private double compactNotificationWidth = 460;
-    private bool HasCompactNotification => UpdateNoticeActive || telegramNoticeActive || (clipboardNoticeActive && settings.ClipboardNotifications);
+    private bool HasCompactNotification => UpdateNoticeActive || telegramNoticeActive || (clipboardNoticeActive && settings.ClipboardNotifications) || deviceNoticeActive;
     private double CompactPresentationWidth => trackVisualPending && !HasCompactNotification ? heldWindowWidth : HasCompactNotification ? Math.Max(StandbyCompactWidth, compactNotificationWidth * Math.Clamp(settings.CompactScale, 75, 150) / 100) : StandbyCompactWidth;
     private double CompactPresentationHeight => HasCompactNotification ? 72 * Math.Clamp(settings.CompactScale, 75, 150) / 100 : CompactHeight;
 
     private void UpdateCompactNotification(bool resizeShell)
+    {
+        bool reduced = Motion.Reduced;
+        bool visible = DeviceNoticeVisible;
+        bool instant = visible || deviceNoticeWasVisible;
+        if (instant)
+        {
+            Motion.Reduced = true;
+            if (visible != deviceNoticeWasVisible && shellMoving) StopShellMotion(true);
+        }
+        try { UpdateCompactNotificationCore(resizeShell); }
+        finally { deviceNoticeWasVisible = visible; Motion.Reduced = reduced; }
+    }
+
+    private void UpdateCompactNotificationCore(bool resizeShell)
     {
         bool active = HasCompactNotification;
         NoticeLifetime.Visibility = active && !expanded && Motion.Enabled ? Visibility.Visible : Visibility.Collapsed;
@@ -21,13 +35,16 @@ public partial class MainWindow
         bool transition = compactVisualNotice != active;
         if (transition) { CaptureCompactTransition(active); compactVisualNotice = active; }
         Header.Visibility = !expanded && !collapseContentActive && !active ? Visibility.Visible : Visibility.Collapsed;
-        System.Windows.Controls.Grid.SetRow(CompactCard, expanded && UpdateNoticeActive ? 1 : 0);
-        CompactCard.MinHeight = expanded && UpdateNoticeActive ? 56 : 0;
-        CompactCard.Visibility = !collapseContentActive && active && (!expanded || UpdateNoticeActive) ? Visibility.Visible : Visibility.Collapsed;
+        System.Windows.Controls.Grid.SetRow(CompactCard, expanded && (UpdateNoticeActive || DeviceNoticeVisible) ? 1 : 0);
+        CompactCard.MinHeight = expanded && (UpdateNoticeActive || DeviceNoticeVisible) ? 56 : 0;
+        CompactCard.Visibility = !collapseContentActive && active && (!expanded || UpdateNoticeActive || DeviceNoticeVisible) ? Visibility.Visible : Visibility.Collapsed;
         CompactLeftHandle.Visibility = CompactRightHandle.Visibility = expanded || active ? Visibility.Collapsed : Visibility.Visible;
         UpdateLaterButton.Visibility = Visibility.Collapsed; CompactCardAction.IsEnabled = true;
+        CompactCardAction.Visibility = Visibility.Visible;
         CompactCardAction.VerticalAlignment = VerticalAlignment.Center;
+        if (!DeviceNoticeVisible) deviceNoticeTimer.Stop();
         if (UpdateNoticeActive) RenderUpdateNotice();
+        else if (DeviceNoticeVisible) RenderDeviceNotice();
         else if (active)
         {
             string title = telegramNoticeActive ? "Telegram · " + TelegramNoticeTitle.Text : ClipboardNoticeTitle.Text;
@@ -106,12 +123,15 @@ public partial class MainWindow
     private void PauseCompactNotificationTimers()
     {
         clipboardNoticeTimer.Stop(); telegramNoticeTimer.Stop();
+        deviceNoticePaused = true; deviceNoticeTimer.Stop();
         noticeLifetimeClock?.Controller?.Pause();
     }
     private void ResumeCompactNotificationTimers()
     {
         noticeLifetimeClock?.Controller?.Resume();
+        deviceNoticePaused = false;
         if (telegramNoticeActive) telegramNoticeTimer.Start();
         if (clipboardNoticeActive) clipboardNoticeTimer.Start();
+        if (DeviceNoticeVisible) deviceNoticeTimer.Start();
     }
 }

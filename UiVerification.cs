@@ -540,6 +540,7 @@ public partial class MainWindow
             await Task.Delay(5300); await AwaitShellAsync();
             Check("Telegram message clears after five seconds", !telegramNoticeActive && CompactCard.Visibility == Visibility.Collapsed && Header.IsVisible && CompactTrack.Visibility == Visibility.Visible && Navigation.SelectedIndex == 0);
             DisableTelegramNotifications();
+            await VerifyDeviceNoticeAsync(Check, output);
             ReceiveTelegramNotification(new Services.TelegramMessage(3, "Тест", "Не должен появиться", DateTimeOffset.UtcNow));
             Check("disabled Telegram listener does not show messages", !telegramNoticeActive && telegramQueue.Count == 0);
             settings.HideStyle = "Капля вверх";

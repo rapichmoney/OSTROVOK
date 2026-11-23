@@ -133,6 +133,7 @@ public partial class MainWindow : Window
         if (settings.Pinned) SetExpanded(true);
         if (settings.DownloadsEnabled) StartDownloads();
         RefreshSystem(); RefreshVolume(); UpdateClock(); RefreshIdleContent(); timer.Start();
+        InitializeDeviceNotices();
         if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase-weather")) await CaptureWeatherShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase-update") || Environment.GetCommandLineArgs().Contains("--showcase-readalong")) await CaptureUpdateShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
@@ -462,6 +463,7 @@ public partial class MainWindow : Window
 
     private IntPtr WindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message == 0x0219 && wParam.ToInt64() is 7 or 0x8000 or 0x8004) UsbDevicesChanged();
         if (message is 0x007E or 0x02E0) Dispatcher.BeginInvoke(new Action(() => { if (closing) return; StopShellMotion(true); ApplyShellAppearance(); AnimateExpansion(expanded); ClampToMonitor(); }));
         if (message == WindowInterop.ClipboardMessage && settings.ClipboardEnabled && !App.VerificationMode) _ = ReadClipboardAsync();
         if (message == WindowInterop.HotkeyMessage && wParam.ToInt32() == WindowInterop.HotkeyId) { if (IsVisible && !hiding) HideAnimated(); else Reveal(); handled = true; }
@@ -594,6 +596,7 @@ public partial class MainWindow : Window
             e.Cancel = true; NotesState.Text = "Не удалось сохранить. Скопируйте текст перед закрытием."; Navigation.SelectedIndex = 3; Reveal(); return;
         }
         closing = true; CancelTrackVisualHold(); timer.Stop(); leaveTimer.Stop(); noteTimer.Stop();
+        StopDeviceNotices();
         StopShellMotion(true);
         StopLyrics();
         StopPageTransition();

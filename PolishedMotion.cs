@@ -48,6 +48,11 @@ internal static class PolishedMotion
         clip.BeginAnimation(RectangleGeometry.RectProperty, reveal);
     }
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<FrameworkElement, SnapshotLease> snapshots = new();
+    internal static void CancelSwap(FrameworkElement element)
+    {
+        if (snapshots.TryGetValue(element, out var previous)) previous.Dispose();
+        Motion.ClearContentMotion(element);
+    }
     internal static int SnapshotCount(FrameworkElement element) => snapshots.TryGetValue(element, out _) ? 1 : 0;
     private sealed class SnapshotLease
     {

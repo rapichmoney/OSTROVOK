@@ -16,6 +16,20 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            var phones = new UsbIphoneConnections();
+            Check("USB startup baseline does not announce an already connected iPhone", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 0);
+            Check("USB interfaces and repeated Windows events do not duplicate notifications", phones.Observe(["usb\\vid_05ac&pid_12a8\\a", "USB\\VID_05AC&PID_12A8\\A"]) == 0);
+            Check("a second iPhone is announced once", phones.Observe(["USB\\VID_05AC&PID_12A8\\A", "USB\\VID_05AC&PID_12A8\\B"]) == 1);
+            Check("disconnect is silent", phones.Observe([]) == 0);
+            Check("physical reconnection announces the phone again", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 1);
+            Check("iPhone identification requires both its name and Apple USB ancestry", UsbIphoneConnections.IsIphone("Apple iPhone", "USB\\VID_05AC&PID_12A8\\A") && !UsbIphoneConnections.IsIphone("Apple iPad", "USB\\VID_05AC&PID_12AB\\A") && !UsbIphoneConnections.IsIphone("iPhone", "BTHENUM\\A") && !UsbIphoneConnections.IsIphone("iPhone", "USB\\VID_1234&PID_0001\\A"));
+            Check("native USB enumeration returns unique nonempty identities", UsbIphoneMonitor.ReadConnected(System.Threading.CancellationToken.None) is var nativePhones && nativePhones.All(x => x.Length > 0) && nativePhones.Distinct(StringComparer.OrdinalIgnoreCase).Count() == nativePhones.Length);
+            using (var canceledUsb = new System.Threading.CancellationTokenSource())
+            {
+                canceledUsb.Cancel(); bool usbWasCanceled = false;
+                try { UsbIphoneMonitor.ReadConnected(canceledUsb.Token); } catch (OperationCanceledException) { usbWasCanceled = true; }
+                Check("USB enumeration supports cancellation without leaking a native handle", usbWasCanceled);
+            }
             await UpdateTests.RunAsync(root, (name, pass) => Check(name, pass));
             await DiagnosticTests.RunAsync(root, (name, pass) => Check(name, pass));
             YandexLaunchSetupTests.Run(root, (name, pass, detail) => Check(name, pass, detail));
