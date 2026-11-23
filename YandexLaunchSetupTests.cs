@@ -10,7 +10,7 @@ internal static class YandexLaunchSetupTests
     {
         void check(string name, bool passed, string detail = "") => report(name, passed, detail);
         string folder = Path.Combine(root, "shortcut-setup"); Directory.CreateDirectory(folder);
-        string exe = Environment.ProcessPath!, backup = Path.Combine(folder, "backup");
+        string exe = YandexLaunchSetup.ShellPath(Environment.ProcessPath!), backup = Path.Combine(folder, "backup");
         string existing = Path.Combine(folder, "existing.lnk"); File.WriteAllText(existing, "original shortcut fixture");
         var kept = new Fixture(exe, "--user-option"); kept.FailAt = Step.SetTarget;
         var errors = new List<(Step Step, Exception Error)>();
@@ -56,14 +56,18 @@ internal static class YandexLaunchSetupTests
         using var shell = new YandexLaunchSetup.ShortcutShell();
         string native = Path.Combine(folder,"Яндекс Музыка — тест.lnk"); errors.Clear();
         changed = YandexLaunchSetup.InstallLinks(exe,[native],backup,shell.Open,(step,error)=>errors.Add((step,error)));
-        string Details() => "changed=" + changed + ", exists=" + File.Exists(native) + ", errors=" + string.Join("; ", errors.Select(x => x.Step + ":" + x.Error.GetType().Name + ":0x" + x.Error.HResult.ToString("X8")));
-        check("real WScript shortcut supports Unicode paths and debug arguments", changed == 1 && errors.Count == 0 && File.Exists(native), Details());
+        string Details() => "changed=" + changed + ", exists=" + File.Exists(native) + ", folderExists=" + Directory.Exists(folder) + ", targetExists=" + File.Exists(exe) + ", pathLength=" + native.Length + ", errors=" + string.Join("; ", errors.Select(x => x.Step + ":" + x.Error.GetType().Name + ":0x" + x.Error.HResult.ToString("X8")));
+        check("real Windows shell shortcut supports Unicode paths and debug arguments", changed == 1 && errors.Count == 0 && File.Exists(native), Details());
         using(var link = shell.Open(native))
         {
             check("real shortcut reopens with the expected target and loopback port", link.TargetPath.Equals(exe,StringComparison.OrdinalIgnoreCase) && link.Arguments.Contains("--remote-debugging-port=9226") && link.Arguments.Contains("--remote-debugging-address=127.0.0.1"), Details() + ", targetLength=" + link.TargetPath.Length + ", exeLength=" + exe.Length);
         }
         changed = YandexLaunchSetup.InstallLinks(exe,[native],backup,shell.Open,(step,error)=>errors.Add((step,error)));
         check("real shortcut setup is idempotent", changed == 0 && errors.Count == 0, Details());
+        string extended = @"\\?\" + Path.Combine(folder,"extended-path.lnk"); errors.Clear();
+        changed = YandexLaunchSetup.InstallLinks(@"\\?\" + exe,[extended],backup,shell.Open,(step,error)=>errors.Add((step,error)));
+        check("extended-length DOS paths do not reach shortcut COM setters",changed==1 && errors.Count==0 && File.Exists(extended),Details());
+        using(var link=shell.Open(extended)) check("extended-path shortcut stores the normal Windows target",link.TargetPath.Equals(exe,StringComparison.OrdinalIgnoreCase));
     }
     private sealed class Fixture(string initialTarget, string initialArguments) : YandexLaunchSetup.IShortcut
     {

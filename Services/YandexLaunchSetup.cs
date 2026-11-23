@@ -15,23 +15,15 @@ internal static class YandexLaunchSetup
     }
     internal sealed class ShortcutShell : IDisposable
     {
-        private readonly object shell;
-        internal ShortcutShell()
-        {
-            var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new NotSupportedException("WScript.Shell is unavailable");
-            shell = Activator.CreateInstance(type) ?? throw new InvalidOperationException("Cannot create shortcut shell");
-        }
-        internal IShortcut Open(string path) => new Shortcut(((dynamic)shell).CreateShortcut(path));
-        public void Dispose() { if (Marshal.IsComObject(shell)) Marshal.FinalReleaseComObject(shell); }
+        internal IShortcut Open(string path) => new NativeShellShortcut(path);
+        public void Dispose() { }
     }
-    private sealed class Shortcut(object instance) : IShortcut
+    internal static string ShellPath(string path)
     {
-        public string TargetPath { get => (string)((dynamic)instance).TargetPath; set => ((dynamic)instance).TargetPath = value; }
-        public string Arguments { get => (string)((dynamic)instance).Arguments; set => ((dynamic)instance).Arguments = value; }
-        public string WorkingDirectory { set => ((dynamic)instance).WorkingDirectory = value; }
-        public string IconLocation { set => ((dynamic)instance).IconLocation = value; }
-        public void Save() => ((dynamic)instance).Save();
-        public void Dispose() { if (Marshal.IsComObject(instance)) Marshal.FinalReleaseComObject(instance); }
+        string full = Path.GetFullPath(path);
+        if (full.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) return @"\\" + full[8..];
+        if (full.StartsWith(@"\\?\", StringComparison.Ordinal) && full.Length > 6 && full[5] == ':' && full[6] == '\\') return full[4..];
+        return full;
     }
     internal static bool IsRecoverable(Exception error) => error is IOException or UnauthorizedAccessException or ArgumentException or COMException
         or InvalidOperationException or NotSupportedException or System.Security.SecurityException or System.ComponentModel.Win32Exception
@@ -88,16 +80,18 @@ internal static class YandexLaunchSetup
     }
     internal static int InstallLinks(string exe, IEnumerable<string> paths, string backup, Func<string, IShortcut> open, Action<Step, Exception> failed)
     {
+        try { exe = ShellPath(exe); }
+        catch (Exception error) when (IsRecoverable(error)) { failed(Step.FindPlayer, error); return 0; }
         int changed = 0;
         foreach (string candidate in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             IShortcut? link = null; Step step = Step.OpenShortcut;
             try
             {
-                string path = Path.GetFullPath(candidate);
+                string path = ShellPath(candidate);
                 link = open(path); bool exists = File.Exists(path);
                 step = Step.ReadTarget;
-                if (exists && !string.Equals(link.TargetPath, exe, StringComparison.OrdinalIgnoreCase)) continue;
+                if (exists && !string.Equals(ShellPath(link.TargetPath), exe, StringComparison.OrdinalIgnoreCase)) continue;
                 step = Step.ReadArguments;
                 string args = link.Arguments ?? "";
                 string clean = System.Text.RegularExpressions.Regex.Replace(args, @"(?<!\S)--remote-debugging-(?:port|address)=\S+", "").Trim();
