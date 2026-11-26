@@ -15,6 +15,8 @@ public partial class MainWindow
         Motion.ClearContentMotion(FlyingTelegramPlane);
         FlyingTelegramPlane.Visibility = Visibility.Collapsed;
         Motion.ClearContentMotion(CompactCardIcon);
+        CompactCardIcon.Opacity = CompactCardBrand.Source == null ? 1 : 0;
+        CompactCardBrand.BeginAnimation(OpacityProperty, null); CompactCardBrand.Opacity = 1;
     }
 
     private void FlyTelegramPlane()
@@ -37,6 +39,7 @@ public partial class MainWindow
         FlyingTelegramPlane.Fill = CompactCardIcon.Fill; FlyingTelegramPlane.Stroke = CompactCardIcon.Stroke;
         FlyingTelegramPlane.RenderTransformOrigin = new Point(.5, .5); FlyingTelegramPlane.RenderTransform = group;
         FlyingTelegramPlane.Opacity = 0; FlyingTelegramPlane.Visibility = Visibility.Visible; CompactCardIcon.Opacity = 0;
+        CompactCardBrand.Opacity = 0;
         foreach (var text in new[] { CompactCardTitle, CompactCardText }) { text.BeginAnimation(OpacityProperty, null); text.Opacity = 0; }
         Motion.Tween(CompactCardTitle, OpacityProperty, 1, 260, 600);
         Motion.Tween(CompactCardText, OpacityProperty, 1, 260, 680);
@@ -55,7 +58,9 @@ public partial class MainWindow
         {
             if (revision != planeFlightRevision) return;
             planeFlying = false; FlyingTelegramPlane.Visibility = Visibility.Collapsed;
-            Motion.ClearContentMotion(FlyingTelegramPlane); Motion.Tween(CompactCardIcon, OpacityProperty, 1, 100);
+            Motion.ClearContentMotion(FlyingTelegramPlane);
+            if (CompactCardBrand.Source != null) Motion.Tween(CompactCardBrand, OpacityProperty, 1, 100);
+            else Motion.Tween(CompactCardIcon, OpacityProperty, 1, 100);
         };
         shift.BeginAnimation(TranslateTransform.YProperty, arc);
         }));

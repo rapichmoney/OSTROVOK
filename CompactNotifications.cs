@@ -42,6 +42,8 @@ public partial class MainWindow
         UpdateLaterButton.Visibility = Visibility.Collapsed; CompactCardAction.IsEnabled = true;
         CompactCardAction.Visibility = Visibility.Visible;
         CompactCardAction.VerticalAlignment = VerticalAlignment.Center;
+        CompactCardBrand.Source = telegramNoticeActive && !UpdateNoticeActive ? currentSocialNotice?.Icon : null;
+        CompactCardBrand.Visibility = CompactCardBrand.Source == null ? Visibility.Collapsed : Visibility.Visible;
         if (!DeviceNoticeVisible) deviceNoticeTimer.Stop();
         if (UpdateNoticeActive) RenderUpdateNotice();
         else if (DeviceNoticeVisible) RenderDeviceNotice();
@@ -67,7 +69,7 @@ public partial class MainWindow
                 compactNotificationWidth = Math.Clamp(Math.Ceiling(Math.Max(titleMeasure.DesiredSize.Width, bodyMeasure.DesiredSize.Width)) + 208, Math.Min(360, available), Math.Min(1040, available));
                 bool busy = !telegramNoticeActive && title.Contains("Переводим", StringComparison.Ordinal);
                 StopTelegramPlaneFlight();
-                CompactCardIcon.Fill = telegramNoticeActive ? new SolidColorBrush(Color.FromArgb(32, 240, 244, 248)) : Brushes.Transparent;
+                CompactCardIcon.Fill = Brushes.Transparent;
                 CompactCardIcon.Stroke = (Brush)FindResource(telegramNoticeActive ? "Ink" : "Accent");
                 CompactCardIcon.Data = Geometry.Parse(telegramNoticeActive ? CurrentSocialIcon : busy ? "M 12,2 A 10,10 0 1 1 2,12" : noticeEntry?.Translation.Length > 0 ? "M 2,5 L 15,5 M 8,2 L 8,5 M 5,5 C 5,11 9,15 14,17 M 12,5 C 12,11 8,15 2,17 M 14,22 L 19,10 L 24,22 M 16,18 L 22,18" : "M 7,7 L 21,7 L 21,23 L 7,23 Z M 4,17 L 2,17 L 2,2 L 16,2 L 16,4");
                 StartNoticeLifetime(telegramNoticeActive ? telegramNoticeTimer.Interval : clipboardNoticeTimer.Interval);
@@ -89,7 +91,7 @@ public partial class MainWindow
                 }
                 else { CompactCardIcon.StrokeDashArray = null; CompactCardIcon.StrokeDashOffset = 0; }
                 if (telegramNoticeActive && CurrentNoticeIsTelegram && transition) FlyTelegramPlane();
-                else if (telegramNoticeActive) CompactCardIcon.Opacity = 1;
+                else if (telegramNoticeActive) CompactCardIcon.Opacity = CompactCardBrand.Source != null ? 0 : 1;
                 else if (!busy) Motion.Pop(CompactCardIcon, .65, 460);
                 else
                 {

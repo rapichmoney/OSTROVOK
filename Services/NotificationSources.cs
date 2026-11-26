@@ -3,7 +3,10 @@ using System.Text;
 
 namespace DesktopIsland.Services;
 
-public sealed record WindowsNotificationApp(string Id, string Name);
+public sealed record WindowsNotificationApp(string Id, string Name)
+{
+    public System.Windows.Media.ImageSource? Icon { get; init; }
+}
 internal sealed record NotificationSource(string Id, string Name, string Icon, string Address);
 
 internal static class NotificationSources

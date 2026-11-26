@@ -1,0 +1,32 @@
+[
+  {
+    "id": "telegram",
+    "source": "https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/Telegram/Resources/art/logo_256_no_margin.png",
+    "originalSha256": "44af9a76a532559ef8cb450b48096713be819103ab79a19d7e4abb9b32ff4cb7",
+    "pngSha256": "3f22d924149394cf89d51d638d7984b0615e7de51e4fdba33fd29e0d2f04dde4"
+  },
+  {
+    "id": "vk",
+    "source": "https://raw.githubusercontent.com/VKCOM/icons/master/packages/icons/src/svg/28/logo_vk_color_28.svg",
+    "originalSha256": "d467393ed8f344487946275b8f76968712d8349771b61d97c68772fc5cb3b6be",
+    "pngSha256": "c0ace3014b956ca5c5a4854c44dc80afdc2bbdbc991ec5daa314cb769a4b1568"
+  },
+  {
+    "id": "instagram",
+    "source": "https://static.cdninstagram.com/rsrc.php/yw/r/icwX0xAk0pz.webp",
+    "originalSha256": "96ead83ee7245a854bd57393f1bc410712799bd7da3420d5b465d7b3e80d89f6",
+    "pngSha256": "a3257b62db4cd84753591d8889683a13148f0ed214aad8c45537816d369905a3"
+  },
+  {
+    "id": "whatsapp",
+    "source": "https://static.whatsapp.net/rsrc.php/y1/r/FJbTMJqMap7.svg",
+    "originalSha256": "1ab6db0cc2eb55d911f151b0aa339c55b6b225efcceddb8ff2050cab1410e347",
+    "pngSha256": "67134b44e3fbdb4cd695005c1d3816504678fcd3ce4a0f97a446318872af1087"
+  },
+  {
+    "id": "discord",
+    "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/62fddf0fde45a8baedcc7ee5_847541504914fd33810e70a0ea73177e%20(2)-1.png",
+    "originalSha256": "11848b5f1c8a7f294c6211c2f0d0dc83a8a28bfe1ef0829a8dacfdf475c5e5a2",
+    "pngSha256": "fee62771945e35629a7268ae6c37feeb6419f94f12af4094680a0b5e02e5e5f4"
+  }
+]

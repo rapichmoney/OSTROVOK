@@ -35,6 +35,8 @@ public partial class MainWindow
         var palette = SettingsPalette;
         TelegramNotice.Background = new System.Windows.Media.SolidColorBrush(palette.Bottom);
         TelegramNotice.BorderBrush = new System.Windows.Media.SolidColorBrush(palette.Rim);
+        SocialNoticeLogo.Source = currentSocialNotice?.Icon;
+        SocialNoticeLogo.Visibility = SocialNoticeLogo.Source == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void NotificationFilterChanged(object sender, SelectionChangedEventArgs e) => RefreshNotificationFilter();

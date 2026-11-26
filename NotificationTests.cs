@@ -8,6 +8,8 @@ internal static class NotificationTests
     internal static void Run(Action<string, bool, string> check)
     {
         check("Windows source catalog has valid functional icons and fixed launch addresses", NotificationSources.All.All(x => Geometry.Parse(x.Icon) != null && Uri.TryCreate(x.Address, UriKind.Absolute, out _)), "");
+        check("all five official social logos are bundled frozen images", NotificationSources.All.All(x => NotificationBrandIcons.Get(x.Id) is { PixelWidth: >= 32, PixelHeight: >= 32, IsFrozen: true }), "");
+        check("unknown Windows apps do not receive a made-up network logo", NotificationBrandIcons.Get("windows") == null && NotificationBrandIcons.Get("unknown") == null, "");
         check("VK is identified by app metadata", NotificationSources.Identify("VKMessenger.App", "VK Мессенджер")?.Id == "vk", "");
         check("Instagram WhatsApp and Discord are identified independently", NotificationSources.Identify("Facebook.InstagramBeta!App", "Instagram")?.Id == "instagram" && NotificationSources.Identify("5319275A.WhatsAppDesktop!App", "WhatsApp")?.Id == "whatsapp" && NotificationSources.Identify("com.squirrel.Discord.Discord", "Discord")?.Id == "discord", "");
         check("browser notifications do not get attributed to a guessed social network", NotificationSources.Identify("Yandex.Browser", "Яндекс") == null && NotificationSources.Identify("Chrome", "Google Chrome") == null && NotificationSources.Identify("Outlook", "Outlook") == null, "");

@@ -1,6 +1,8 @@
 using Windows.UI.Notifications;
 using Windows.UI.Notifications.Management;
 using System.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace DesktopIsland.Services;
@@ -9,6 +11,8 @@ public sealed record TelegramMessage(uint Id, string Title, string Body, DateTim
 {
     public string SourceName => SourceId == "windows" ? AppName : NotificationSources.Find(SourceId)?.Name ?? "Уведомление";
     public string When => Created.ToLocalTime().ToString("HH:mm · dd.MM");
+    public ImageSource? AppIcon { get; init; }
+    public ImageSource Icon => NotificationBrandIcons.Get(SourceId) ?? AppIcon ?? NotificationBrandIcons.Fallback;
 }
 
 public sealed class TelegramNotificationService : IDisposable
@@ -18,6 +22,7 @@ public sealed class TelegramNotificationService : IDisposable
     private bool subscribed;
     private readonly NotificationDeduplicator seen = new();
     private readonly Dictionary<string, WindowsNotificationApp> apps = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, BitmapSource?> appIcons = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim scanGate = new(1, 1);
     private bool disposed;
     private int generation;
@@ -106,8 +111,12 @@ public sealed class TelegramNotificationService : IDisposable
                     bool changed = seen.Observe(notification.Id, appId, notification.CreationTime.UtcTicks, title, body, baseline);
                     if (changed && (title.Length > 0 || body.Length > 0))
                     {
+                        var icon = source == null ? await ReadAppIconAsync(appId, appInfo.DisplayInfo) : NotificationBrandIcons.Get(sourceId);
+                        if (disposed || !Connected || revision != generation) return;
+                        if (!SourceEnabled(sourceId, appId)) continue;
+                        if (apps.ContainsKey(appId)) apps[appId] = new(appId, appName) { Icon = icon };
                         ReceivedCount++; Status = "Подключено к уведомлениям Windows. Получено: " + ReceivedCount + ".";
-                        Received?.Invoke(new(notification.Id, title, body, notification.CreationTime, sourceId, appId, appName));
+                        Received?.Invoke(new(notification.Id, title, body, notification.CreationTime, sourceId, appId, appName) { AppIcon = icon });
                     }
                 }
                 catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException or UnauthorizedAccessException or NotImplementedException) { }
@@ -121,6 +130,23 @@ public sealed class TelegramNotificationService : IDisposable
     }
 
     internal static bool IsTelegram(string appId, string name) => appId.Contains("telegram", StringComparison.OrdinalIgnoreCase) || name.Equals("Telegram", StringComparison.OrdinalIgnoreCase) || name.Equals("Telegram Desktop", StringComparison.OrdinalIgnoreCase);
+    private async Task<BitmapSource?> ReadAppIconAsync(string id, Windows.ApplicationModel.AppDisplayInfo? info)
+    {
+        if (info == null) return null;
+        if (appIcons.TryGetValue(id, out var cached)) return cached;
+        BitmapSource? icon = null;
+        try
+        {
+            using var input = await info.GetLogo(new Windows.Foundation.Size(64, 64)).OpenReadAsync();
+            using var stream = input.AsStreamForRead();
+            var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth = 64; image.StreamSource = stream; image.EndInit(); image.Freeze(); icon = image;
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or IOException or InvalidOperationException or ArgumentException or NotSupportedException) { }
+        if (appIcons.Count >= 128) appIcons.Remove(appIcons.Keys.First());
+        appIcons[id] = icon;
+        return icon;
+    }
     private void NotificationChanged(UserNotificationListener sender, UserNotificationChangedEventArgs args)
     {
         if (!disposed && !dispatcher.HasShutdownStarted) dispatcher.BeginInvoke(new Action(async () => await ScanAsync(false)));

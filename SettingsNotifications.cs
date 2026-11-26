@@ -31,7 +31,7 @@ internal sealed partial class SettingsWindow
         foreach (var source in NotificationSources.All)
         {
             string id = source.Id;
-            Toggle(content, source.Name, settings.NotificationSources.Contains(id), enabled => island.SetNotificationSource(id, enabled));
+            SourceToggle(content, source.Name, settings.NotificationSources.Contains(id), enabled => island.SetNotificationSource(id, enabled), NotificationBrandIcons.Get(id));
         }
         Hint(content, "Переключатель разрешает источник, но не входит в аккаунт. При отключении источника его сообщения удаляются из ленты и очереди острова.");
         Section(content, "Другие приложения Windows");
@@ -42,10 +42,23 @@ internal sealed partial class SettingsWindow
         foreach (var app in apps)
         {
             string id = app.Id;
-            Toggle(content, app.Name, settings.AdditionalNotificationApps.Contains(id, StringComparer.OrdinalIgnoreCase), enabled => island.SetAdditionalNotificationApp(id, enabled));
+            SourceToggle(content, app.Name, settings.AdditionalNotificationApps.Contains(id, StringComparer.OrdinalIgnoreCase), enabled => island.SetAdditionalNotificationApp(id, enabled), app.Icon);
         }
         Action(content, "Обновить список", BuildPage);
         Action(content, "Открыть ленту уведомлений", () => { Hide(); island.ShowNotificationInbox(); });
         Hint(content, "До 100 сообщений в памяти. История очищается при закрытии приложения и не передаётся в переводчик или Discord. Уже имеющиеся в центре уведомлений сообщения повторно не показываются.");
+    }
+
+    private void SourceToggle(StackPanel parent, string title, bool enabled, Action<bool> set, ImageSource? icon)
+    {
+        Toggle(parent, title, enabled, set);
+        var check = (CheckBox)parent.Children[parent.Children.Count - 1];
+        System.Windows.Automation.AutomationProperties.SetName(check, title);
+        if (icon == null) return;
+        check.Tag = "NotificationSource";
+        var label = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        label.Children.Add(new Image { Source = icon, Width = 24, Height = 24, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 10, 0) });
+        label.Children.Add(new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center });
+        check.Content = label;
     }
 }

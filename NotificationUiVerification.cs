@@ -15,6 +15,7 @@ public partial class MainWindow
         check("social notifications never reach clipboard or change the active page", clipboard.Count == clipboardEntries && Navigation.SelectedIndex == 0, "");
         SetExpanded(false); await AwaitShellAsync(); await Task.Delay(200);
         check("VK compact card uses its own icon without a Telegram plane", CompactCard.IsVisible && CompactCardTitle.Text.StartsWith("ВКонтакте") && !planeFlying && !FlyingTelegramPlane.IsVisible && CompactCardIcon.Data.ToString() == System.Windows.Media.Geometry.Parse(CurrentSocialIcon).ToString(), "");
+        check("VK popup displays its embedded full-color official brand asset", CompactCardBrand.IsVisible && ReferenceEquals(CompactCardBrand.Source, NotificationBrandIcons.Get("vk")) && CompactCardIcon.Opacity == 0, "");
         Capture(Path.Combine(output, "vk-notification.png"));
         ReceiveTelegramNotification(new(202, "Проверка Instagram", "Демонстрационное сообщение Instagram", DateTimeOffset.UtcNow, "instagram", "Facebook.Instagram", "Instagram"));
         DismissTelegramNotice(this, EventArgs.Empty); await Task.Delay(100);
@@ -38,8 +39,9 @@ public partial class MainWindow
         check("disabled network cannot enqueue a new popup", !telegramNoticeActive && notificationHistory.Count == 2, "");
         SetNotificationSource("vk", true);
         OpenPreferences(7); await Task.Delay(250);
-        var settingsTree = VisualDescendants<CheckBox>(preferences!).Select(x => x.Content?.ToString()).ToArray();
+        var settingsTree = VisualDescendants<CheckBox>(preferences!).Select(x => System.Windows.Automation.AutomationProperties.GetName(x)).ToArray();
         check("notification settings contain five separate network switches", NotificationSources.All.All(x => settingsTree.Contains(x.Name)), "");
+        check("notification settings show all five full-color social logos", VisualDescendants<Image>(preferences!).Count(x => NotificationSources.All.Any(s => ReferenceEquals(x.Source, NotificationBrandIcons.Get(s.Id)))) == 5, "");
         CaptureVisual(preferences!, Path.Combine(output, "notification-sources.png"));
         preferences?.Close();
         for (uint i = 300; i < 415; i++) ReceiveTelegramNotification(new(i, "Проверка лимита", "Демонстрация", DateTimeOffset.UtcNow, "vk"));

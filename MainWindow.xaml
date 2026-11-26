@@ -71,6 +71,7 @@
         <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
         <Path x:Name="CompactCardGhostIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="2,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" Opacity="0" IsHitTestVisible="False"/>
         <Path x:Name="CompactCardIcon" Grid.RowSpan="2" Width="20" Height="20" Margin="2,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" Stroke="{StaticResource Accent}" StrokeThickness="1.4" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"/>
+        <Image x:Name="CompactCardBrand" Grid.RowSpan="2" Width="28" Height="28" Margin="0,0,0,0" HorizontalAlignment="Left" Stretch="Uniform" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False"/>
         <TextBlock x:Name="CompactCardTitle" Grid.Column="1" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <TextBlock x:Name="CompactCardText" Grid.Row="1" Grid.Column="1" FontSize="13" Foreground="{StaticResource Secondary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <StackPanel Grid.RowSpan="2" Grid.Column="2" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
@@ -100,6 +101,7 @@
         <StackPanel>
           <DockPanel>
             <Button DockPanel.Dock="Right" Content="Закрыть" Click="DismissTelegramNotice" Padding="6,2"/>
+            <Image x:Name="SocialNoticeLogo" DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,10,0" Stretch="Uniform"/>
             <TextBlock x:Name="SocialNoticeSource" DockPanel.Dock="Left" Text="Telegram" Foreground="{StaticResource Secondary}" Margin="0,0,10,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="TelegramNoticeTitle" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
           </DockPanel>
@@ -578,7 +580,7 @@
               <ComboBox x:Name="NotificationFilter" Grid.Row="2" SelectionChanged="NotificationFilterChanged" Margin="0,0,0,12" AutomationProperties.Name="Источник уведомлений"/>
               <ListBox x:Name="NotificationList" Grid.Row="3" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="NotificationHistory">
                 <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="2,10"><StackPanel>
-                  <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding When}" Foreground="{StaticResource Muted}" FontSize="11" Margin="10,0,0,0"/><TextBlock Text="{Binding SourceName}" Foreground="{StaticResource Secondary}" FontSize="12"/></DockPanel>
+                  <DockPanel><Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="22" Height="22" Margin="0,0,8,0" Stretch="Uniform"/><TextBlock DockPanel.Dock="Right" Text="{Binding When}" Foreground="{StaticResource Muted}" FontSize="11" Margin="10,0,0,0"/><TextBlock Text="{Binding SourceName}" Foreground="{StaticResource Secondary}" FontSize="12" VerticalAlignment="Center"/></DockPanel>
                   <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,4"/>
                   <TextBlock Text="{Binding Body}" TextWrapping="Wrap" Foreground="{StaticResource Secondary}" FontSize="13"/>
                 </StackPanel></Border></DataTemplate></ListBox.ItemTemplate>

@@ -228,14 +228,15 @@
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
         <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="0,12">
           <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="42"/></Grid.ColumnDefinitions>
-            <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,18,0"/>
+            <TextBlock x:Name="SwitchLabel" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,18,0"/>
+            <ContentPresenter x:Name="SwitchRichLabel" Content="{TemplateBinding Content}" VerticalAlignment="Center" Margin="0,0,18,0" Visibility="Collapsed"/>
             <Border x:Name="SwitchTrack" Grid.Column="1" Width="42" Height="24" Background="{DynamicResource SwitchOff}" CornerRadius="12" VerticalAlignment="Center">
               <Ellipse x:Name="SwitchKnob" Width="18" Height="18" Fill="#F0F1F3" HorizontalAlignment="Left" Margin="3,0,0,0"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
             </Border>
           </Grid>
         </Border>
         <ControlTemplate.Triggers>
-
+          <Trigger Property="Tag" Value="NotificationSource"><Setter TargetName="SwitchLabel" Property="Visibility" Value="Collapsed"/><Setter TargetName="SwitchRichLabel" Property="Visibility" Value="Visible"/></Trigger>
           <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SwitchTrack" Property="BorderBrush" Value="{StaticResource Ink}"/><Setter TargetName="SwitchTrack" Property="BorderThickness" Value="1"/></Trigger>
           <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
         </ControlTemplate.Triggers>
