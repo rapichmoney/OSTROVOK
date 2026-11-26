@@ -17,7 +17,7 @@ public partial class MainWindow
         CompactCard.IsVisibleChanged += (_, _) =>
         {
             if (!CompactCard.IsVisible) { if (telegramNoticeActive || planeFlying) StopTelegramPlaneFlight(); return; }
-            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (!closing && telegramNoticeActive && CompactCard.IsVisible && !planeFlying) FlyTelegramPlane(); }));
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => { if (!closing && telegramNoticeActive && CurrentNoticeIsTelegram && CompactCard.IsVisible && !planeFlying) FlyTelegramPlane(); }));
         };
         telegramNotifications.Received += ReceiveTelegramNotification;
         telegramNoticeTimer.Tick += DismissTelegramNotice;
@@ -25,7 +25,8 @@ public partial class MainWindow
 
     private void ReceiveTelegramNotification(TelegramMessage message)
     {
-        if (closing || !settings.TelegramNotificationsEnabled) return;
+        if (closing || !settings.TelegramNotificationsEnabled || !NotificationSources.Enabled(settings, message.SourceId, message.AppId)) return;
+        RememberNotification(message);
         if (telegramQueue.Count >= 20) telegramQueue.Dequeue();
         telegramQueue.Enqueue(message);
         if (!telegramNoticeActive) ShowNextTelegramNotice();
@@ -36,11 +37,14 @@ public partial class MainWindow
     {
         telegramNoticeTimer.Stop();
         telegramNoticeActive = telegramQueue.TryDequeue(out var next);
+        currentSocialNotice = next;
+        SocialNoticeSource.Text = CurrentSocialName;
+        StopTelegramPlaneFlight();
         if (next != null)
         {
             TelegramNoticeTitle.Text = next.Title;
             TelegramNoticeText.Text = next.Body.Length > 1200 ? next.Body[..1200] + "…" : next.Body;
-            CompactTelegramText.Text = "Telegram · " + next.Title + (next.Body.Length > 0 ? ": " + next.Body.Replace('\n', ' ') : "");
+            CompactTelegramText.Text = next.SourceName + " · " + next.Title + (next.Body.Length > 0 ? ": " + next.Body.Replace('\n', ' ') : "");
             telegramNoticeTimer.Start();
             Motion.Enter(CompactTelegramText, 5, 220); Motion.Enter(TelegramNoticeText, 5, 220);
         }
@@ -52,14 +56,14 @@ public partial class MainWindow
 
     private void UpdateTelegramNoticeVisibility()
     {
+        UpdateNotificationPresentation();
         TelegramNotice.Visibility = telegramNoticeActive && expanded ? Visibility.Visible : Visibility.Collapsed;
         CompactTelegramHost.Visibility = telegramNoticeActive && !expanded ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OpenTelegram(object sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("tg://") { UseShellExecute = true }); }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Status.Text = "Не удалось открыть Telegram. Откройте приложение вручную."; }
+        OpenNotificationSource(currentSocialNotice);
     }
     private void OpenTelegramNotice(object sender, MouseButtonEventArgs e) { OpenTelegram(sender, e); e.Handled = true; }
 
@@ -96,6 +100,6 @@ public partial class MainWindow
     internal void DisableTelegramNotifications()
     {
         settings.TelegramNotificationsEnabled = false; telegramNotifications.Disconnect(); telegramQueue.Clear();
-        ShowNextTelegramNotice(); SaveSettings();
+        ShowNextTelegramNotice(); notificationHistory.Clear(); RefreshNotificationFilter(); SaveSettings();
     }
 }

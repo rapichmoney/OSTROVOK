@@ -16,6 +16,8 @@ internal static class SelfTests
         try
         {
             var store = new LocalStore(root);
+            NotificationTests.Run(Check);
+            await ArtworkTests.RunAsync(Check);
             var phones = new UsbIphoneConnections();
             Check("USB startup announces an already connected iPhone and retains its presence", phones.Observe(["USB\\VID_05AC&PID_12A8\\A"]) == 1 && phones.Count == 1);
             Check("USB interfaces and repeated Windows events do not duplicate notifications", phones.Observe(["usb\\vid_05ac&pid_12a8\\a", "USB\\VID_05AC&PID_12A8\\A"]) == 0);

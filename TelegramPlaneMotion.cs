@@ -20,11 +20,11 @@ public partial class MainWindow
     private void FlyTelegramPlane()
     {
         StopTelegramPlaneFlight();
-        if (!Motion.Enabled || !CompactCard.IsVisible || !telegramNoticeActive) return;
+        if (!Motion.Enabled || !CompactCard.IsVisible || !telegramNoticeActive || !CurrentNoticeIsTelegram) return;
         int revision = planeFlightRevision; planeFlying = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
-        if (revision != planeFlightRevision || !CompactCard.IsVisible || !telegramNoticeActive) return;
+        if (revision != planeFlightRevision || !CompactCard.IsVisible || !telegramNoticeActive || !CurrentNoticeIsTelegram) return;
         CompactCard.UpdateLayout();
         var root = (UIElement)Shell.Child;
         Point landing = CompactCardIcon.TranslatePoint(new Point(0, 0), root);

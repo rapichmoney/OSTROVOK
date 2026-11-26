@@ -60,7 +60,7 @@ internal sealed partial class SettingsWindow : Window
         System.Windows.Automation.AutomationProperties.SetAutomationId(footer, "SettingsSaveStatus");
         footer.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         DockPanel.SetDock(footer, Dock.Bottom); sidebar.Children.Add(footer);
-        foreach (var title in new[] { "Остров", "Внешний вид", "Погода", "Данные", "Система", "Музыка", "Вкладки" }) navigation.Items.Add(title);
+        foreach (var title in new[] { "Остров", "Внешний вид", "Погода", "Данные", "Система", "Музыка", "Вкладки", "Уведомления" }) navigation.Items.Add(title);
         navigation.Margin = new Thickness(10, 0, 10, 0); navigation.SelectionChanged += (_, _) => BuildPage(); sidebar.Children.Add(navigation); root.Children.Add(sidebar);
         var scroll = new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(32, 24, 24, 24) };
         pageScroll = scroll;
@@ -132,7 +132,7 @@ internal sealed partial class SettingsWindow : Window
         target.BeginAnimation(property, animation, HandoffBehavior.SnapshotAndReplace);
     }
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-    internal void SelectPage(int index) { int target = Math.Clamp(index, 0, 6); if (navigation.SelectedIndex == target) BuildPage(); else navigation.SelectedIndex = target; }
+    internal void SelectPage(int index) { int target = Math.Clamp(index, 0, 7); if (navigation.SelectedIndex == target) BuildPage(); else navigation.SelectedIndex = target; }
     private void Changed() { if (!initialized) return; commit.Stop(); commit.Start(); UpdatePreview(); }
     private void UpdatePreview() { preview.Configure(settings.AnimationStyle, settings.Radius, settings.AnimationSpeed, settings.SpringStrength); previewClock.Text = DateTime.Now.ToString("HH:mm    d MMMM"); }
     private void BuildPage()
@@ -219,15 +219,9 @@ internal sealed partial class SettingsWindow : Window
                 Action(content, "Показать все вкладки", () => { settings.HiddenTabs = []; Changed(); BuildPage(); });
                 break;
             case 2: WeatherPage(content); break;
+            case 7: NotificationPage(content); break;
             case 3:
-                Section(content, "Уведомления Telegram");
-                var telegramState = new TextBlock { Text = island.TelegramNotificationStatus, Foreground = (Brush)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 8) };
-                var connectTelegram = new Button { Content = "Подключить уведомления Telegram", HorizontalAlignment = HorizontalAlignment.Left };
-                connectTelegram.Click += async (_, _) => { connectTelegram.IsEnabled = false; telegramState.Text = "Подключаем…"; try { telegramState.Text = await island.ConnectTelegramNotificationsAsync(); } catch (Exception) { telegramState.Text = "Не удалось подключиться. Повторите подключение."; } finally { connectTelegram.IsEnabled = true; } };
-                content.Children.Add(connectTelegram); content.Children.Add(telegramState);
-                Action(content, "Открыть доступ к уведомлениям Windows", () => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:privacy-notifications") { UseShellExecute = true }); } catch (System.ComponentModel.Win32Exception) { telegramState.Text = "Откройте параметры Windows → Конфиденциальность → Уведомления."; } });
-                Action(content, "Отключить уведомления Telegram", () => { island.DisableTelegramNotifications(); telegramState.Text = island.TelegramNotificationStatus; });
-                Hint(content, "Нужно разрешение Windows на чтение уведомлений. Остров показывает только новые системные уведомления Telegram; старые не воспроизводит. Сообщение видно 5 секунд. Текст хранится в памяти до окончания показа, не записывается на диск и не отправляется в переводчик. В Telegram должны быть включены системные уведомления Windows.");
+                Action(content, "Настроить уведомления Windows", () => SelectPage(7));
                 Section(content, "Буфер обмена");
                 Toggle(content, "Собирать новый текст из буфера", settings.ClipboardEnabled, x => { island.SetPrivacyOptions(x, settings.DownloadsEnabled); });
                 Toggle(content, "Уведомлять о копировании в острове", settings.ClipboardNotifications, x => settings.ClipboardNotifications = x);

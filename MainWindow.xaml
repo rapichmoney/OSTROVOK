@@ -100,11 +100,11 @@
         <StackPanel>
           <DockPanel>
             <Button DockPanel.Dock="Right" Content="Закрыть" Click="DismissTelegramNotice" Padding="6,2"/>
-            <TextBlock DockPanel.Dock="Left" Text="Telegram" Foreground="#A8C4D4" Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="SocialNoticeSource" DockPanel.Dock="Left" Text="Telegram" Foreground="{StaticResource Secondary}" Margin="0,0,10,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="TelegramNoticeTitle" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
           </DockPanel>
           <ScrollViewer MaxHeight="88" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0"><TextBlock x:Name="TelegramNoticeText" TextWrapping="Wrap" FontSize="13"/></ScrollViewer>
-          <Button Content="Открыть Telegram" Click="OpenTelegram" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="6,3"/>
+          <Button Content="Открыть источник" Click="OpenTelegram" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="6,3"/>
         </StackPanel>
       </Border>
       <Grid x:Name="Body" Grid.Row="2" Visibility="Collapsed" Margin="12,16,12,12" ClipToBounds="True">
@@ -570,6 +570,23 @@
               <TextBlock x:Name="WeatherStatus" Grid.Row="3" Text="Прогноз Open-Meteo. Город задаётся в настройках." FontSize="10" Foreground="{StaticResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
             </Grid>
           </TabItem>
+          <TabItem>
+            <Grid>
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+              <DockPanel><Button DockPanel.Dock="Right" Content="Источники" Click="OpenNotificationSettings"/><TextBlock Text="Уведомления" Style="{StaticResource Heading}" VerticalAlignment="Center"/></DockPanel>
+              <TextBlock Grid.Row="1" Text="Новые уведомления Windows. История хранится до закрытия OSTROVOK." Foreground="{StaticResource Muted}" TextWrapping="Wrap" FontSize="12" Margin="0,10,0,12"/>
+              <ComboBox x:Name="NotificationFilter" Grid.Row="2" SelectionChanged="NotificationFilterChanged" Margin="0,0,0,12" AutomationProperties.Name="Источник уведомлений"/>
+              <ListBox x:Name="NotificationList" Grid.Row="3" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="NotificationHistory">
+                <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="2,10"><StackPanel>
+                  <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding When}" Foreground="{StaticResource Muted}" FontSize="11" Margin="10,0,0,0"/><TextBlock Text="{Binding SourceName}" Foreground="{StaticResource Secondary}" FontSize="12"/></DockPanel>
+                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,4"/>
+                  <TextBlock Text="{Binding Body}" TextWrapping="Wrap" Foreground="{StaticResource Secondary}" FontSize="13"/>
+                </StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock x:Name="NotificationEmpty" Grid.Row="3" Text="Новых уведомлений пока нет" Foreground="{StaticResource Muted}" TextWrapping="Wrap" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,20" IsHitTestVisible="False"/>
+              <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,12,0,0"><Button Content="Открыть источник" Click="OpenSelectedNotification" Margin="0,0,8,0"/><Button Content="Очистить" Click="ClearNotificationHistory"/></StackPanel>
+            </Grid>
+          </TabItem>
         </local:ContentPages>
         <Image x:Name="PageSnapshot" Visibility="Collapsed" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
       </Grid>
@@ -588,6 +605,7 @@
         <ListBoxItem Content="События"/>
         <ListBoxItem Content="Настройки"/>
         <ListBoxItem Content="Погода"/>
+        <ListBoxItem Content="Уведомления"/>
       </ListBox>
       <Canvas x:Name="ToolbarIndicatorLayer" Grid.Row="0" IsHitTestVisible="False" Visibility="Collapsed"><Border x:Name="ToolbarIndicator" BorderThickness="1" CornerRadius="6"/></Canvas>
       <DockPanel x:Name="TopNavigation" Grid.Row="0" LastChildFill="False" Margin="4,14,4,4" Visibility="Collapsed" MouseLeftButtonDown="MoveIsland"/>

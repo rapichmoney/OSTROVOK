@@ -31,7 +31,7 @@ public partial class MainWindow
                 settings.TelegramNotificationsEnabled = telegramNotifications.Connected;
                 states.Add(result);
             }
-            else states.Add(TelegramNotificationService.HasIdentity ? "Уведомления отключены в настройках" : "Уведомления: подключите пакет Windows в разделе «Данные»");
+            else states.Add(TelegramNotificationService.HasIdentity ? "Уведомления отключены в настройках" : "Уведомления: подключите пакет Windows в разделе «Уведомления»");
             connectionSummary = string.Join(". ", states);
             if (settings.SetupVersion < 1 || manual)
             {

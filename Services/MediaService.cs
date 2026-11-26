@@ -10,6 +10,7 @@ public sealed partial class MediaService : IDisposable
     private GlobalSystemMediaTransportControlsSessionManager? manager;
     private GlobalSystemMediaTransportControlsSession? session;
     private string lastTrack = "";
+    private bool thumbnailDirty;
     private bool updating;
     private readonly PlaybackClock clock = new();
     private readonly SynchronizedPlaybackClock externalClock = new();
@@ -53,9 +54,8 @@ public sealed partial class MediaService : IDisposable
         if (state.Playing) sourceStability.Accept(Source, "ru.yandex.desktop.music", true, Environment.TickCount64);
         bool sourceChanged = Source != "ru.yandex.desktop.music";
         bool changed = sourceChanged || !Available || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist || Playing != state.Playing;
-        bool trackChanged = sourceChanged || nativeTrackId != state.TrackId;
-        if (sourceChanged) requestedArtwork = "";
-        if (trackChanged) { ArtworkReady = string.IsNullOrEmpty(state.ArtworkUrl); if (ArtworkReady) Artwork = null; Album = ""; }
+        bool trackChanged = sourceChanged || nativeTrackId != state.TrackId || Title != state.Title || Artist != state.Artist;
+        if (trackChanged) { SelectArtworkOwner("ru.yandex.desktop.music\n" + state.Title + "\n" + state.Artist, true); ArtworkReady = string.IsNullOrEmpty(state.ArtworkUrl); Album = ""; }
         if (IsVideo) DisconnectSession();
         windowVideoAvailable = false;
         IsVideo = false;
@@ -137,7 +137,7 @@ public sealed partial class MediaService : IDisposable
                 Playing = browserVideo.Playing; Duration = browserVideo.Duration;
                 CanPlay = YouTubeBrowserBridge.Shared.CanControl(youtubeId); CanNext = CanPrevious = CanSeek = false;
                 clock.Sample(browserVideo.Position + (Playing ? (Environment.TickCount64 - browserVideo.Received) / 1000d : 0), Duration, Playing, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-                if (changed) { Artwork = null; ArtworkReady = false; LoadYouTubeArtwork(youtubeId); }
+                if (changed) { SelectArtworkOwner(CurrentArtworkOwner); ArtworkReady = false; LoadYouTubeArtwork(youtubeId); }
                 Updated?.Invoke(); return;
             }
             if (!nativeMusicPlaying && !candidates.Any(x => x.Priority > 0))
@@ -149,7 +149,7 @@ public sealed partial class MediaService : IDisposable
                     if (!sourceStability.Accept(Source, "youtube.window", false, Environment.TickCount64)) return;
                     DisconnectSession(); nativeAvailable = false; windowVideoAvailable = true;
                     Source = "youtube.window"; IsVideo = true; Title = video.Title; Artist = "YouTube"; Album = "";
-                    Playing = video.Playing; Artwork = null; ArtworkReady = true; Duration = 0;
+                    Playing = video.Playing; SelectArtworkOwner(CurrentArtworkOwner); Artwork = null; ArtworkReady = true; Duration = 0;
                     CanPlay = CanNext = CanPrevious = CanSeek = false;
                     clock.Sample(0, 0, false, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
                     Updated?.Invoke(); return;
@@ -172,6 +172,7 @@ public sealed partial class MediaService : IDisposable
                 DisconnectSession();
                 session = null; Title = "Ничего не играет"; Artist = "Откройте музыку или видео в плеере";
                 Artwork = null; Source = ""; Playing = false; IsVideo = false; CanPlay = CanNext = CanPrevious = CanSeek = false;
+                SelectArtworkOwner(CurrentArtworkOwner);
                 Duration = 0; Album = ""; clock.Sample(0, 0, false, 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); lastTrack = ""; Updated?.Invoke(); return;
             }
             var properties = await next.TryGetMediaPropertiesAsync();
@@ -182,7 +183,8 @@ public sealed partial class MediaService : IDisposable
             if (!ReferenceEquals(session, next))
             {
                 DisconnectSession(); session = next;
-                session.MediaPropertiesChanged += SessionChanged; session.PlaybackInfoChanged += SessionChanged; session.TimelinePropertiesChanged += SessionChanged;
+                thumbnailDirty = true;
+                session.MediaPropertiesChanged += MediaPropertiesChanged; session.PlaybackInfoChanged += SessionChanged; session.TimelinePropertiesChanged += SessionChanged;
             }
             nativeAvailable = false;
             var playback = next.GetPlaybackInfo();
@@ -201,12 +203,15 @@ public sealed partial class MediaService : IDisposable
             Duration = native?.Duration ?? Math.Max(0, (timeline.EndTime - timeline.StartTime).TotalSeconds);
             clock.Sample(Math.Max(0, (timeline.Position - timeline.StartTime).TotalSeconds), Duration, Playing, playback.PlaybackRate ?? 1, timeline.LastUpdatedTime, DateTimeOffset.UtcNow);
             var track = Source + "\n" + Title + "\n" + Artist;
-            if (track != lastTrack || (Artwork == null && properties.Thumbnail != null))
+            SelectArtworkOwner(track);
+            if (!PreferNativeArtwork && (thumbnailDirty || track != lastTrack || (Artwork == null && properties.Thumbnail != null)))
             {
+                thumbnailDirty = false;
                 if (track != lastTrack && native == null) externalPositionAvailable = false;
                 lastTrack = track;
                 if (properties.Thumbnail != null && (native == null || string.Equals(properties.Title, native.Title, StringComparison.OrdinalIgnoreCase)))
                 {
+                    long thumbnailRevision = artworkRevision;
                     ArtworkReady = false;
                     try
                     {
@@ -214,10 +219,10 @@ public sealed partial class MediaService : IDisposable
                         using var stream = input.AsStreamForRead();
                         var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad;
                         bitmap.DecodePixelWidth = 240; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze();
-                        if (track != Source + "\n" + Title + "\n" + Artist) { refreshPending = true; return; }
+                        if (track != CurrentArtworkOwner || thumbnailRevision != artworkRevision || PreferNativeArtwork) { refreshPending = true; return; }
                         Artwork = bitmap; ArtworkReady = true;
                     }
-                    catch (Exception) { ArtworkReady = true; }
+                    catch (Exception) { if (track == CurrentArtworkOwner && thumbnailRevision == artworkRevision) ArtworkReady = true; }
                 }
                 else if (Source != "ru.yandex.desktop.music") { Artwork = null; ArtworkReady = true; }
             }
@@ -228,6 +233,7 @@ public sealed partial class MediaService : IDisposable
     }
     private void ManagerChanged(GlobalSystemMediaTransportControlsSessionManager sender, object args) => RequestRefresh();
     private void SessionChanged(GlobalSystemMediaTransportControlsSession sender, object args) => RequestRefresh();
+    private void MediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, object args) { thumbnailDirty = true; RequestRefresh(); }
     private void RequestRefresh()
     {
         if (disposed || dispatcher.HasShutdownStarted || Interlocked.Exchange(ref refreshQueued, 1) != 0) return;
@@ -236,11 +242,13 @@ public sealed partial class MediaService : IDisposable
     private void DisconnectSession()
     {
         if (session == null) return;
-        session.MediaPropertiesChanged -= SessionChanged; session.PlaybackInfoChanged -= SessionChanged; session.TimelinePropertiesChanged -= SessionChanged; session = null;
+        session.MediaPropertiesChanged -= MediaPropertiesChanged; session.PlaybackInfoChanged -= SessionChanged; session.TimelinePropertiesChanged -= SessionChanged; session = null;
     }
     public void Dispose()
     {
+        if (disposed) return;
         disposed = true; DisconnectSession();
+        artworkCancellation?.Cancel(); artworkCancellation?.Dispose();
         if (manager != null) { manager.CurrentSessionChanged -= ManagerChanged; manager.SessionsChanged -= ManagerChanged; }
     }
     public async Task<bool> CommandAsync(string command, double seconds = 0)

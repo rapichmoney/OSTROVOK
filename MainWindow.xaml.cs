@@ -58,6 +58,8 @@ public partial class MainWindow : Window
         store.Error += message => AddActivity("Хранилище", message);
         downloads.Activity += (title, detail) => AddActivity(title, detail, true);
         settings = store.Load("settings.json", () => new AppSettings());
+        settings.NotificationSources = (settings.NotificationSources ?? []).Where(x => Services.NotificationSources.Find(x) != null).Distinct().ToArray();
+        settings.AdditionalNotificationApps = (settings.AdditionalNotificationApps ?? []).Where(x => !string.IsNullOrWhiteSpace(x) && x.Length <= 1024).Distinct(StringComparer.OrdinalIgnoreCase).Take(128).ToArray();
         WeatherCityList.Normalize(settings);
         if (!App.VerificationMode && settings.ClipboardFeatureVersion < 1) { settings.ClipboardEnabled = true; settings.ClipboardFeatureVersion = 1; }
         Motion.Reduced = settings.ReducedMotion; LessMotion.IsChecked = settings.ReducedMotion;
@@ -89,7 +91,8 @@ public partial class MainWindow : Window
         InitializeLyrics();
         InitializeClipboardNotices();
         InitializeTelegramNotices();
-        if (settings.LastTab is >= 0 and <= 10 && settings.LastTab != 9) Navigation.SelectedIndex = settings.LastTab;
+        InitializeNotificationInbox();
+        if (settings.LastTab is >= 0 and <= 11 && settings.LastTab != 9) Navigation.SelectedIndex = settings.LastTab;
         RefreshIdleContent();
     }
 
@@ -137,9 +140,9 @@ public partial class MainWindow : Window
         if (App.VerificationMode) { if (Environment.GetCommandLineArgs().Contains("--showcase-weather")) await CaptureWeatherShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase-update") || Environment.GetCommandLineArgs().Contains("--showcase-readalong")) await CaptureUpdateShowcaseAsync(); else if (Environment.GetCommandLineArgs().Contains("--verify-motion")) await VerifyMotionAsync(); else if (Environment.GetCommandLineArgs().Contains("--showcase")) await CaptureShowcaseAsync(); else await VerifyUiAsync(); return; }
         if (Environment.GetCommandLineArgs().Contains("--connect-telegram"))
         {
-            Reveal(); OpenPreferences(3);
+            Reveal(); OpenPreferences(7);
             await ConnectTelegramNotificationsAsync();
-            preferences?.SelectPage(3);
+            preferences?.SelectPage(7);
         }
         else if (settings.TelegramNotificationsEnabled && !settings.AutoSetup) await telegramNotifications.ConnectAsync(false);
         await media.InitializeAsync(); UpdateMedia();
@@ -242,7 +245,7 @@ public partial class MainWindow : Window
         var outgoingPage = previousPage != Navigation.SelectedIndex ? CapturePageForTransition() : null;
         if (ready && Navigation.SelectedIndex == 9 && !App.VerificationMode) { Navigation.SelectedIndex = 0; OpenPreferences(); return; }
         if (!navigatingForClipboard) clipboardReturnTab = null;
-        if (Navigation.SelectedIndex is >= 0 and <= 10 && Navigation.SelectedIndex != 2 && Navigation.SelectedIndex != 9) lastNonClipboardTab = Navigation.SelectedIndex;
+        if (Navigation.SelectedIndex is >= 0 and <= 11 && Navigation.SelectedIndex != 2 && Navigation.SelectedIndex != 9) lastNonClipboardTab = Navigation.SelectedIndex;
         ContentTabs.SelectedIndex = Navigation.SelectedIndex;
         if (ready) { UpdateToolbar(); settings.LastTab = Navigation.SelectedIndex; if (expanded) AnimateExpansion(true); SaveSettings(); }
         if (ready && IsLoaded && expanded) TransitionToPage(outgoingPage, Navigation.SelectedIndex >= previousPage ? 1 : -1);
@@ -604,6 +607,7 @@ public partial class MainWindow : Window
         StopClipboardTranslation(); clipboardNoticeTimer.Stop();
         doubleCopyHook.Dispose();
         telegramNotifications.Dispose(); telegramNoticeTimer.Stop(); telegramQueue.Clear();
+        notificationHistory.Clear();
         media.Dispose(); discordPresence.Dispose();
         preferences?.Close();
         SaveSettings(); downloads.Dispose();

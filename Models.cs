@@ -21,6 +21,8 @@ public sealed class AppSettings
     public bool Pinned { get; set; }
     public bool ClipboardEnabled { get; set; }
     public bool TelegramNotificationsEnabled { get; set; }
+    public string[] NotificationSources { get; set; } = ["telegram", "vk", "instagram", "whatsapp", "discord"];
+    public string[] AdditionalNotificationApps { get; set; } = [];
     public bool DiscordPresenceEnabled { get; set; }
     public string DiscordApplicationId { get; set; } = Services.DiscordPresenceService.DefaultApplicationId;
     public bool DiscordShowTrack { get; set; } = true;

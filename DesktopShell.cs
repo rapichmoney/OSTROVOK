@@ -36,7 +36,7 @@ public partial class MainWindow
     internal static double PageHeight(int page, bool playing) => page switch
     {
         0 => playing ? 450 : 156, 1 => 332, 2 => 350, 3 => 370, 4 => 350,
-        5 => 460, 6 => 350, 7 => 370, 8 => 390, 9 => 520, 10 => 520, _ => 350
+        5 => 460, 6 => 350, 7 => 370, 8 => 390, 9 => 520, 10 => 520, 11 => 520, _ => 350
     };
 
     private void BuildToolbar()
@@ -55,7 +55,7 @@ public partial class MainWindow
         more.Click += (_, _) =>
         {
             var menu = new ContextMenu(); TrackIslandMenu(menu);
-            foreach (var item in new[] { (1, "Полка файлов"), (3, "Заметки"), (4, "Задачи"), (5, "Календарь"), (10, "Погода"), (7, "Монитор"), (6, "Загрузки"), (8, "События") })
+            foreach (var item in new[] { (11, "Уведомления"), (1, "Полка файлов"), (3, "Заметки"), (4, "Задачи"), (5, "Календарь"), (10, "Погода"), (7, "Монитор"), (6, "Загрузки"), (8, "События") })
             {
                 if (!TabEnabled(item.Item1)) continue;
                 var action = new MenuItem { Header = item.Item2 }; int index = item.Item1;

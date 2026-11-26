@@ -257,7 +257,7 @@ public partial class MainWindow
             Pin.IsChecked = false;
             TryAutoCollapse();
             Check("open sections menu keeps island expanded outside its window", expanded && moreMenu?.IsOpen == true && IslandInteractionActive);
-            Check("sections menu keeps all secondary tools reachable and readable", moreMenu?.Background is SolidColorBrush menuBrush && menuBrush.Color == Color.FromRgb(32, 36, 42) && moreMenu.Items.Count == 9 && moreMenu.Items.OfType<System.Windows.Controls.MenuItem>().All(x => x.Foreground is SolidColorBrush ink && ink.Color == Color.FromRgb(240, 241, 243)));
+            Check("sections menu keeps all secondary tools reachable and readable", moreMenu?.Background is SolidColorBrush menuBrush && menuBrush.Color == Color.FromRgb(32, 36, 42) && moreMenu.Items.Count == 10 && moreMenu.Items.OfType<System.Windows.Controls.MenuItem>().Any(x => x.Header?.ToString() == "Уведомления") && moreMenu.Items.OfType<System.Windows.Controls.MenuItem>().All(x => x.Foreground is SolidColorBrush ink && ink.Color == Color.FromRgb(240, 241, 243)));
             if (moreMenu != null) { CaptureVisual(moreMenu, Path.Combine(output, "more-menu.png")); moreMenu.IsOpen = false; }
             Check("closing menu gives pointer time to return to island", IslandInteractionActive);
             Pin.IsChecked = true;
@@ -540,6 +540,7 @@ public partial class MainWindow
             await Task.Delay(5300); await AwaitShellAsync();
             Check("Telegram message clears after five seconds", !telegramNoticeActive && CompactCard.Visibility == Visibility.Collapsed && Header.IsVisible && CompactTrack.Visibility == Visibility.Visible && Navigation.SelectedIndex == 0);
             DisableTelegramNotifications();
+            await VerifySocialNotificationsAsync(Check, output);
             await VerifyDeviceNoticeAsync(Check, output);
             ReceiveTelegramNotification(new Services.TelegramMessage(3, "Тест", "Не должен появиться", DateTimeOffset.UtcNow));
             Check("disabled Telegram listener does not show messages", !telegramNoticeActive && telegramQueue.Count == 0);
